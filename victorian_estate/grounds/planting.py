@@ -18,9 +18,9 @@ import random
 import zlib
 
 import bpy
-from mathutils import Euler, Matrix, Vector
+from mathutils import Matrix, Vector
 
-from ..core import config, meshkit as mk
+from ..core import meshkit as mk
 from ..core.materials import Library
 from . import terrain as T
 

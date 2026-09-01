@@ -16,7 +16,6 @@ from dataclasses import dataclass
 import bpy
 from mathutils import Euler, Vector
 
-from . import config
 
 
 # ---------------------------------------------------------------------------

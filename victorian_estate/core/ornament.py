@@ -682,7 +682,9 @@ def panel(name: str, width: float, height: float, depth: float,
           ) -> bpy.types.Object:
     """A raised-and-fielded panel: sunk border, chamfer, flat field."""
     w, h, b = width / 2, height / 2, bevel_in
-    z0, z1, z2 = 0.0, depth * 0.45, depth
+    # depth is the full projection of the field above the surrounding stile,
+    # so the chamfer starts far enough back for the raised part to land on it.
+    z0, z1 = 0.0, max(0.0, depth - raise_h)
     outer = [(-w, -h), (w, -h), (w, h), (-w, h)]
     mid = [(-w + b, -h + b), (w - b, -h + b), (w - b, h - b), (-w + b, h - b)]
     inner = [(-w + b * 1.35, -h + b * 1.35), (w - b * 1.35, -h + b * 1.35),

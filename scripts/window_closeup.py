@@ -1,5 +1,5 @@
 """Close-up of a single window, for checking the joinery reads correctly."""
-import math, os, sys
+import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bpy
 bpy.ops.wm.read_factory_settings(use_empty=True)

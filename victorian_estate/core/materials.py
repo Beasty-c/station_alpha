@@ -11,7 +11,6 @@ sells the material at render scale.
 
 from __future__ import annotations
 
-import math
 from typing import Sequence
 
 import bpy

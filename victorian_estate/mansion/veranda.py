@@ -12,7 +12,7 @@ and a curved sweep round the foot of the tower are all the same code.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import bpy
 from mathutils import Matrix, Vector

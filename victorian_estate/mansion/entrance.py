@@ -14,9 +14,8 @@ import math
 import bpy
 from mathutils import Matrix
 
-from ..core import config, meshkit as mk, ornament as orn
+from ..core import meshkit as mk, ornament as orn
 from ..core.materials import Library
-from . import windows as W
 
 
 def door_leaf(name: str, width: float, height: float, thickness: float,

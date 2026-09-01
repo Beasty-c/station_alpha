@@ -12,7 +12,7 @@ import math
 import random
 
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix
 
 from ..core import config, meshkit as mk, ornament as orn
 from ..core.materials import Library
@@ -98,7 +98,6 @@ def bench(name: str, x: float, y: float, yaw: float, lib: Library, col,
                    (length, 0.070, 0.028), col)
         slats.append(s)
     for i in range(4):
-        t = i / 3.0
         b = mk.box(f"{name}.back{i}", (0, 0, 0), (length, 0.060, 0.026), col)
         mk.transform(b, Matrix.Translation(
             (0.0, -0.16, seat_z + 0.16 + i * 0.135))
@@ -170,25 +169,30 @@ def statue(name: str, x: float, y: float, yaw: float, lib: Library, col,
 
     fh = height - ph
     # Body: a tapering lathe, leaning slightly, with a draped mass at the base.
+    # Vary the figure with the seed - a pair of identical statues at opposite
+    # ends of a walk reads as a copy-paste, which is exactly what it was.
+    def w(base):
+        return base * rng.uniform(0.88, 1.14)
+
     body = mk.lathe(f"{name}.body", [
-        (0.34, 0.0), (0.30, fh * 0.10), (0.26, fh * 0.30), (0.20, fh * 0.46),
-        (0.16, fh * 0.56), (0.19, fh * 0.62), (0.21, fh * 0.72),
-        (0.17, fh * 0.80), (0.10, fh * 0.84), (0.13, fh * 0.90),
-        (0.11, fh * 0.96), (0.0, fh),
+        (w(0.34), 0.0), (w(0.30), fh * 0.10), (w(0.26), fh * 0.30),
+        (w(0.20), fh * 0.46), (w(0.16), fh * 0.56), (w(0.19), fh * 0.62),
+        (w(0.21), fh * 0.72), (w(0.17), fh * 0.80), (w(0.10), fh * 0.84),
+        (w(0.13), fh * 0.90), (w(0.11), fh * 0.96), (0.0, fh),
     ], 14, center=(x, y, z + ph), col=col)
     mk.shade_smooth(body, math.radians(46))
     parts.append(body)
     # An arm, and a fold of drapery.
     arm = mk.lathe(f"{name}.arm", [(0.075, 0.0), (0.065, 0.34), (0.05, 0.62),
                                    (0.0, 0.70)], 8, col=col)
-    mk.transform(arm, Matrix.Translation((x, y, z + ph + fh * 0.66))
-                 @ Matrix.Rotation(yaw, 4, 'Z')
-                 @ Matrix.Rotation(math.radians(58), 4, 'Y'))
+    mk.transform(arm, Matrix.Translation(
+        (x, y, z + ph + fh * rng.uniform(0.58, 0.74)))
+        @ Matrix.Rotation(yaw + rng.uniform(-0.5, 0.5), 4, 'Z')
+        @ Matrix.Rotation(math.radians(rng.uniform(40, 74)), 4, 'Y'))
     mk.shade_smooth(arm, math.radians(46))
     parts.append(arm)
     obj = mk.join(parts, name, col)
     mk.set_material(obj, lib.marble)
-    mk.transform(obj, Matrix.Translation((0, 0, 0)))
     return obj
 
 
@@ -219,6 +223,8 @@ def kitchen_garden(lib: Library, col) -> list[bpy.types.Object]:
                          [(cx, cy - sy / 2 + 1), (cx, cy + sy / 2 - 1)],
                          1.8, lib, col, material=lib.gravel, layer=11))
 
+    # Four quarters in rotation, each row a different crop and each bed a
+    # slightly different width - a kitchen garden is worked, not set out once.
     rng = random.Random(77)
     crops = [(0.16, 0.30, 0.10), (0.22, 0.36, 0.14), (0.14, 0.26, 0.09),
              (0.30, 0.34, 0.16)]
@@ -227,11 +233,14 @@ def kitchen_garden(lib: Library, col) -> list[bpy.types.Object]:
         qy = cy + syy * (sy / 4 + 0.5)
         for row in range(4):
             ry = qy - 2.6 + row * 1.75
+            half = rng.uniform(4.4, 5.3)
+            depth = rng.uniform(0.5, 0.7)
             made += P.bed(f"kitchen.bed{qi}{row}",
-                          [(qx - 5.2, ry - 0.62), (qx + 5.2, ry - 0.62),
-                           (qx + 5.2, ry + 0.62), (qx - 5.2, ry + 0.62)],
-                          lib, col, seed=qi * 40 + row, density=3.4,
-                          height=0.36, colours=(crops[(qi + row) % 4],))
+                          [(qx - half, ry - depth), (qx + half, ry - depth),
+                           (qx + half, ry + depth), (qx - half, ry + depth)],
+                          lib, col, seed=qi * 40 + row,
+                          density=rng.uniform(2.8, 4.2), height=0.36,
+                          colours=(crops[(qi + row) % 4],))
 
     # Cold frames along the south wall.
     frames = []

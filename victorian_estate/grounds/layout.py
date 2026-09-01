@@ -156,7 +156,6 @@ def parterre(lib: Library, col) -> list[bpy.types.Object]:
 
     # A sundial on a baluster pedestal at the crossing.
     z = T.height(cx, cy)
-    from ..core import ornament as orn
     ped = mk.lathe("parterre.sundial", [
         (0.0, 0.0), (0.62, 0.0), (0.62, 0.14), (0.46, 0.24), (0.30, 0.34),
         (0.22, 0.62), (0.30, 0.90), (0.24, 1.02), (0.42, 1.12), (0.42, 1.20),

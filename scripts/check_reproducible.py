@@ -9,7 +9,6 @@ twice in one process and compares object names and vertex counts.
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import bpy
 from victorian_estate import build as vb
 
 

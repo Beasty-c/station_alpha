@@ -11,7 +11,7 @@ a corner tower, a wrap-around veranda, steep cross gables, a slate mansard
 over the main block, and a great deal of turned and sawn woodwork.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # ---------------------------------------------------------------------------

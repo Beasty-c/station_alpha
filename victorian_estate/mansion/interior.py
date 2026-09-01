@@ -117,7 +117,7 @@ def dress_windows(schedule: dict[str, list[Bay]], b: config.Block,
 
 
 def build(lib: Library, col) -> list[bpy.types.Object]:
-    from .shell import main_schedule, pavilion_schedule, wing_schedule
+    from .shell import main_schedule, pavilion_schedule
     made: list[bpy.types.Object] = []
     made += floors(config.MAIN, lib, col, 3)
     made += floors(config.WING, lib, col, 2)

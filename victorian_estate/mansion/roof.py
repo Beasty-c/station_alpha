@@ -355,7 +355,7 @@ def place_dormers(b: config.Block, lib: Library, col, eave_z: float,
                   overhang: float = 0.42, style: str = "segmental"
                   ) -> list[bpy.types.Object]:
     """Space dormers evenly along each side of a mansard's lower slope."""
-    from .shell import Elevation, SIDES
+    from .shell import SIDES
     made = []
     proto = dormer(f"{b.name}.dormer.proto", lib, col, style=style)
     for side, count in counts.items():
@@ -378,7 +378,8 @@ def place_dormers(b: config.Block, lib: Library, col, eave_z: float,
             made.append(mk.instance(proto, f"{b.name}.dormer.{side}.{i}",
                                     (px, py, eave_z + 0.30),
                                     rotation=(0.0, 0.0, yaw), col=col))
-    data = proto.data
+    # The prototype's mesh is still referenced by every instance; join()
+    # releases it once those are consumed.
     bpy.data.objects.remove(proto)
     joined = mk.join(made, f"{b.name}.dormers", col)
     return [joined]

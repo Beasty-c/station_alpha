@@ -13,7 +13,7 @@ its corners, which is what stops cornices from tearing open where they turn.
 from __future__ import annotations
 
 import math
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import bmesh
 import bpy

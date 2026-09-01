@@ -3,11 +3,11 @@
 Usage:  python3 scripts/quicklook.py [preset] [view]
         view = front | corner | rear | west | top
 """
-import math, os, sys, time
+import os, sys, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bpy
 bpy.ops.wm.read_factory_settings(use_empty=True)
-from victorian_estate.core import config, meshkit as mk, materials as mat, render as rr
+from victorian_estate.core import render as rr
 from victorian_estate import build as vb
 
 preset = sys.argv[1] if len(sys.argv) > 1 else "draft"
