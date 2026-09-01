@@ -405,23 +405,28 @@ def _leaf_shape(size: float, lobes: int = 5) -> tuple[list, list]:
     return [(x, 0.0, y) for x, y in pts], faces
 
 
-def ivy(name: str, origin, normal, width: float, height: float,
+def ivy(name: str, centre, normal, width: float, height: float,
         lib: Library, col, up=(0.0, 0.0, 1.0), stems: int = 14,
         density: float = 26.0, leaf: float = 0.085, seed: int = 0,
         coverage: float = 0.75, material=None) -> bpy.types.Object:
     """A patch of climbing ivy on a wall plane.
 
-    ``origin`` is a point at the foot of the patch and ``normal`` is the
-    wall's outward direction; the patch runs ``width`` along the wall and
-    ``height`` up it.  Stems random-walk upward with a bias to stay on the
-    wall, and leaves are single lobed quads scattered along them, tilted out
-    of the plane so the mass catches light instead of reading as a flat decal.
+    ``centre`` is the midpoint of the patch's foot and ``normal`` is the
+    wall's outward direction; the patch spreads ``width`` along the wall,
+    half either side, and climbs ``height``.  Taking a centre rather than a
+    corner is deliberate: which way "along the wall" runs depends on the
+    normal, and a patch anchored at a corner runs off the end of its own wall
+    on half the elevations.
+
+    Stems random-walk upward with a bias to stay on the wall, and leaves are
+    single lobed quads scattered along them, tilted out of the plane so the
+    mass catches light instead of reading as a flat decal.
     """
     rng = random.Random(seed * 131 + 7)
-    o = Vector(origin)
     u = Vector(up).normalized()
     n = Vector(normal).normalized()
     r = u.cross(n).normalized()
+    o = Vector(centre) - r * (width / 2.0)
 
     stem_v: list[tuple] = []
     stem_f: list[tuple] = []

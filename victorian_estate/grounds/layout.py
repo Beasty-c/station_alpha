@@ -205,23 +205,23 @@ def creepers(lib: Library, col) -> list[bpy.types.Object]:
     climbers were let go only where nobody important was looking.
     """
     made = []
-    m, w = config.MAIN, config.WING
+    m, w, p = config.MAIN, config.WING, config.PAVILION
     patches = [
-        # (origin, outward normal, width, height, stems, seed)
-        ((w.x0 - 0.06, w.y0 + 0.6, config.Z_BASE), (-1, 0, 0), 7.4, 8.6, 15, 1),
-        ((w.x1 + 0.06, w.y0 + 1.2, config.Z_BASE), (1, 0, 0), 6.2, 7.8, 13, 2),
-        ((w.x0 + 1.0, w.y0 - 0.06, config.Z_BASE), (0, -1, 0), 8.6, 8.0, 16, 3),
-        ((m.x0 - 0.06, m.y0 + 0.5, config.Z_BASE), (-1, 0, 0), 5.0, 7.0, 11, 4),
-        ((config.PAVILION.x0 - 0.06, config.PAVILION.y0 + 0.4, config.Z_BASE),
-         (-1, 0, 0), 4.2, 6.4, 9, 5),
+        # (centre of the patch foot, outward normal, width, height, stems, seed)
+        ((w.x0 - 0.06, w.cy - 0.8, config.Z_BASE), (-1, 0, 0), 7.4, 8.6, 15, 1),
+        ((w.x1 + 0.06, w.cy - 1.4, config.Z_BASE), (1, 0, 0), 6.2, 7.8, 13, 2),
+        ((w.cx + 0.4, w.y0 - 0.06, config.Z_BASE), (0, -1, 0), 8.6, 8.0, 16, 3),
+        ((m.x0 - 0.06, m.y0 + 3.0, config.Z_BASE), (-1, 0, 0), 5.0, 7.0, 11, 4),
+        ((m.cx + 4.5, m.y0 - 0.06, config.Z_BASE), (0, -1, 0), 5.6, 7.2, 12, 5),
+        ((p.x1 + 0.06, p.y0 + 2.0, config.Z_BASE), (1, 0, 0), 3.6, 6.4, 9, 6),
     ]
-    for i, (origin, normal, wd, ht, stems, seed) in enumerate(patches):
-        made.append(ivy_patch(f"ivy.house{i}", origin, normal, wd, ht, lib,
+    for i, (centre, normal, wd, ht, stems, seed) in enumerate(patches):
+        made.append(ivy_patch(f"ivy.house{i}", centre, normal, wd, ht, lib,
                               col, stems, seed))
 
     # And along the outer face of the kitchen garden's north wall.
     for i in range(3):
-        x = 13.0 + i * 8.6
+        x = 16.0 + i * 8.6
         made.append(ivy_patch(f"ivy.kitchen{i}",
                               (x, -22.76, T.height(x, -23.0) - 0.3),
                               (0, 1, 0), 7.6, 2.4, lib, col, 9, 20 + i))
