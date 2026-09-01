@@ -30,6 +30,18 @@ t = time.time()
 vb.build_all()
 print(f"built in {time.time() - t:.1f}s", flush=True)
 
+# An elevation is a drawing of the house, so the detached buildings come out.
+# They also cross the near clip plane on some sides - the conservatory sits
+# right in front of the east front - and a solid sliced open by a clip plane
+# shows its backfaces, which render as a black slab across the drawing.
+for name in ("Outbuildings",):
+    hidden = bpy.data.collections.get(name)
+    if hidden:
+        for obj in hidden.all_objects:
+            obj.hide_render = True
+        print(f"hidden for elevations: {name} "
+              f"({len(hidden.all_objects)} objects)", flush=True)
+
 # Flat, near-frontal light: an elevation is for reading geometry, not mood,
 # but a little rake keeps the mouldings from disappearing altogether.
 rr.daylight(elevation=42, rotation=150, sky_strength=0.85, sun_energy=3.0,
