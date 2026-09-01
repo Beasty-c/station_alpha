@@ -136,6 +136,7 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
 
     works = mk.collection("Outbuildings", root)
     stage("carriage house", lambda: outbuildings.carriage_house(lib, works))
+    stage("stable yard", lambda: outbuildings.stable_yard(lib, works))
     stage("conservatory", lambda: outbuildings.conservatory(lib, works))
     stage("gazebo", lambda: outbuildings.gazebo(lib, works))
     stage("lodge", lambda: outbuildings.lodge(lib, works))

@@ -557,6 +557,58 @@ def gravel(name: str = "Gravel") -> bpy.types.Material:
     return mat
 
 
+def cobbles(name: str = "Cobbles", color: RGB = (0.135, 0.125, 0.118)
+            ) -> bpy.types.Material:
+    """Setts laid to a fan - larger and more regular than gravel, with the
+    joints reading as dark lines rather than as shadow between stones."""
+    key = f"cobbles::{name}"
+    if key in _CACHE:
+        return _CACHE[key]
+    mat, nt = _new(name)
+    coords = _obj_coords(nt)
+    cells = _node(nt, "ShaderNodeTexVoronoi", -1000, 120)
+    cells.voronoi_dimensions = '3D'
+    _set(cells, "Scale", 9.0)
+    _set(cells, "Randomness", 0.62)
+    nt.links.new(coords.outputs["Object"], cells.inputs["Vector"])
+    joints = _node(nt, "ShaderNodeTexVoronoi", -1000, -200)
+    joints.feature = 'DISTANCE_TO_EDGE'
+    joints.voronoi_dimensions = '3D'
+    _set(joints, "Scale", 9.0)
+    _set(joints, "Randomness", 0.62)
+    nt.links.new(coords.outputs["Object"], joints.inputs["Vector"])
+    grain = _noise(nt, -1000, -470, scale=140.0, detail=6.0,
+                   coords=coords.outputs["Object"])
+
+    tint = _node(nt, "ShaderNodeMixRGB", -720, 80)
+    _set(tint, "Color1", _rgba([c * 0.62 for c in color]))
+    _set(tint, "Color2", _rgba([min(1.0, c * 1.75) for c in color]))
+    nt.links.new(cells.outputs["Color"], tint.inputs["Fac"])
+
+    ramp = _node(nt, "ShaderNodeValToRGB", -720, -200)
+    ramp.color_ramp.elements[0].position = 0.005
+    ramp.color_ramp.elements[1].position = 0.055
+    nt.links.new(joints.outputs["Distance"], ramp.inputs["Fac"])
+
+    grout = _node(nt, "ShaderNodeMixRGB", -460, 0)
+    _set(grout, "Color1", (0.055, 0.050, 0.045, 1))
+    nt.links.new(ramp.outputs["Color"], grout.inputs["Fac"])
+    nt.links.new(tint.outputs["Color"], grout.inputs["Color2"])
+
+    bsdf = _principled(nt, roughness=0.62)
+    nt.links.new(grout.outputs["Color"], bsdf.inputs["Base Color"])
+    b1 = _bump(nt, grain.outputs["Fac"], 0.14, 0.002, x=80, y=-470)
+    b2 = _node(nt, "ShaderNodeBump", 250, -340)
+    _set(b2, "Strength", 0.85)
+    _set(b2, "Distance", 0.022)
+    nt.links.new(ramp.outputs["Color"], b2.inputs["Height"])
+    nt.links.new(b1.outputs["Normal"], b2.inputs["Normal"])
+    nt.links.new(b2.outputs["Normal"], bsdf.inputs["Normal"])
+    _out(nt, bsdf)
+    _CACHE[key] = mat
+    return mat
+
+
 def turf(name: str = "Lawn", color: RGB | None = None,
          scale: float = 260.0, variation: float = 0.5) -> bpy.types.Material:
     """Mown lawn seen from a distance: colour break-up plus a fine normal."""
@@ -797,6 +849,7 @@ class Library:
             (0.42, 0.09, 0.10), (0.10, 0.20, 0.42), (0.62, 0.48, 0.12),
             (0.10, 0.30, 0.16), (0.68, 0.62, 0.50), (0.34, 0.14, 0.34)])
         self.gravel = gravel()
+        self.cobbles = cobbles()
         self.lawn = turf()
         self.lawn_rough = turf("Lawn.Meadow", [0.115, 0.155, 0.052],
                                scale=140.0, variation=0.75)

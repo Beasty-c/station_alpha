@@ -17,6 +17,8 @@ joinery and orienting it stays automatic.
 from __future__ import annotations
 
 import math
+import random
+import zlib
 from dataclasses import dataclass, field
 
 import bpy
@@ -106,6 +108,22 @@ SILL = {1: config.WIN_SILL, 2: config.WIN_SILL, 3: config.WIN_SILL_3}
 
 #: Set by build() so the window schedule can light the house for dusk views.
 LIT = False
+
+
+def occupancy(key: str, floor: int) -> dict:
+    """Per-opening variation: a raised sash here, a blind half drawn there.
+
+    A facade where every sash sits at exactly the same height reads as a
+    drawing of a house rather than a house.  The variation is keyed off the
+    opening's own name so it is stable between builds.
+    """
+    rng = random.Random(zlib.crc32(key.encode()))
+    out: dict = {}
+    if floor <= 2 and rng.random() < 0.22:
+        out["open_frac"] = rng.uniform(0.10, 0.34)
+    if rng.random() < 0.26:
+        out["blind"] = rng.uniform(0.22, 0.62)
+    return out
 
 
 def window_spec(floor: int, **overrides) -> W.WindowSpec:
@@ -343,10 +361,12 @@ def build_block(b: config.Block, schedule: dict[str, list[Bay]],
                     W.place(door, px, py, deck, elev.yaw)
                     joinery.append(door)
                     continue
-                spec = window_spec(floor, **bay.spec.get(floor, {}))
+                name = f"{b.name}.{side}.{bi}.f{floor}"
+                opts = dict(bay.spec.get(floor, {}))
+                opts.update(occupancy(name, floor))
+                spec = window_spec(floor, **opts)
                 spec.wall_t = WALL_T
                 _cut_opening(wall, elev, bay.offset, spec, z, col)
-                name = f"{b.name}.{side}.{bi}.f{floor}"
                 obj = W.build(name, spec, lib, col)
                 px, py, _ = elev.point(bay.offset, 0.0)
                 W.place(obj, px, py, z, elev.yaw)

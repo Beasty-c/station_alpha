@@ -71,6 +71,7 @@ class WindowSpec:
     stained: bool = False
     lit: bool = False                       # a warm pane behind the glass
     open_frac: float = 0.0                  # lower sash raised, 0..0.45
+    blind: float = 0.0                      # roller blind drawn down, 0..0.9
 
     def default_rise(self) -> float:
         if self.rise:
@@ -310,6 +311,23 @@ def build(name: str, spec: WindowSpec, lib: Library, col=None
                        head_z / 2), (0.022, 0.030, head_z), col)
         mk.set_material(bead, lib.trim)
         parts.append(bead)
+
+    # -- roller blind ------------------------------------------------------
+    if spec.blind > 0.01:
+        drop = spec.blind * head_z
+        cloth = mk.box(f"{name}.blind",
+                       (0.0, -spec.reveal - spec.sash_t - 0.055,
+                        head_z - drop / 2),
+                       (spec.width - 0.10, 0.006, drop), col)
+        mk.set_material(cloth, lib.drape)
+        parts.append(cloth)
+        # The batten at the hem, which is what makes a blind read as a blind.
+        batten = mk.box(f"{name}.blindbatten",
+                        (0.0, -spec.reveal - spec.sash_t - 0.055,
+                         head_z - drop),
+                        (spec.width - 0.08, 0.022, 0.038), col)
+        mk.set_material(batten, lib.wood_oak)
+        parts.append(batten)
 
     # -- an interior glow pane, for the dusk renders -----------------------
     if spec.lit:

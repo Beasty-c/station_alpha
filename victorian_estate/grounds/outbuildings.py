@@ -182,6 +182,131 @@ def carriage_house(lib: Library, col) -> list[bpy.types.Object]:
     return made
 
 
+def dovecote(name: str, x: float, y: float, lib: Library, col,
+             height: float = 4.2, sides: int = 8, seed: int = 0
+             ) -> bpy.types.Object:
+    """A dovecote on a post: a louvred octagon with landing ledges and a cap."""
+    parts = []
+    z = T.height(x, y)
+    post_h = height * 0.56
+    post = mk.box(f"{name}.post", (x, y, z + post_h / 2),
+                  (0.26, 0.26, post_h), col)
+    mk.set_material(post, lib.trim)
+    parts.append(post)
+    for sgn in (-1, 1):
+        for axis in (0, 1):
+            brace = mk.box(f"{name}.brace{sgn}{axis}", (0, 0, 0),
+                           (0.09, 0.09, 1.05), col)
+            off = (sgn * 0.38, 0.0) if axis == 0 else (0.0, sgn * 0.38)
+            mk.transform(brace, Matrix.Translation(
+                (x + off[0] * 0.5, y + off[1] * 0.5, z + post_h - 0.42))
+                @ Matrix.Rotation(math.radians(34) * sgn,
+                                  4, 'Y' if axis == 0 else 'X'))
+            mk.set_material(brace, lib.trim)
+            parts.append(brace)
+
+    r = 0.78
+    body_h = height * 0.30
+    body = mk.lathe(f"{name}.body",
+                    [(0.0, 0.0), (r, 0.0), (r, body_h), (0.0, body_h)],
+                    sides, start=math.pi / sides,
+                    center=(x, y, z + post_h), col=col)
+    mk.set_material(body, lib.body)
+    parts.append(body)
+
+    # Entrance holes and their landing ledges, two tiers.
+    holes = []
+    for tier, zz in enumerate((post_h + body_h * 0.32, post_h + body_h * 0.68)):
+        for i in range(sides):
+            a = math.tau * (i + 0.5) / sides + math.pi / sides
+            hx, hy = x + math.cos(a) * r, y + math.sin(a) * r
+            cut = mk.box(f"{name}.hole{tier}{i}", (0, 0, 0),
+                         (0.13, 0.5, 0.17), col)
+            mk.transform(cut, Matrix.Translation((hx, hy, z + zz))
+                         @ Matrix.Rotation(a, 4, 'Z'))
+            holes.append(cut)
+            ledge = mk.box(f"{name}.ledge{tier}{i}", (0, 0, 0),
+                           (0.34, 0.18, 0.035), col)
+            mk.transform(ledge, Matrix.Translation(
+                (hx + math.cos(a) * 0.07, hy + math.sin(a) * 0.07,
+                 z + zz - 0.10))
+                @ Matrix.Rotation(a, 4, 'Z'))
+            mk.set_material(ledge, lib.trim)
+            parts.append(ledge)
+    for cut in holes:
+        mk.boolean(body, cut)
+
+    band = mk.lathe(f"{name}.band",
+                    [(r + 0.10, 0.0), (r + 0.16, 0.06), (r + 0.10, 0.12)],
+                    sides, start=math.pi / sides, cap=False,
+                    center=(x, y, z + post_h + body_h - 0.06), col=col)
+    mk.set_material(band, lib.trim)
+    parts.append(band)
+
+    cap_h = height * 0.16
+    cap = mk.lathe(f"{name}.cap",
+                   [(r + 0.24, 0.0), (r * 0.62, cap_h * 0.55),
+                    (r * 0.26, cap_h * 0.85), (0.0, cap_h)],
+                   sides, start=math.pi / sides,
+                   center=(x, y, z + post_h + body_h), col=col)
+    mk.set_material(cap, lib.slate)
+    parts.append(cap)
+    fin = orn.finial(f"{name}.finial", 0.55, 0.09, 12, "ball", col)
+    mk.transform(fin, Matrix.Translation((x, y, z + post_h + body_h + cap_h)))
+    mk.set_material(fin, lib.copper)
+    parts.append(fin)
+    return mk.join(parts, name, col)
+
+
+def pump(name: str, x: float, y: float, lib: Library, col, yaw: float = 0.0
+         ) -> bpy.types.Object:
+    """A cast-iron yard pump over a stone trough."""
+    parts = []
+    z = T.height(x, y)
+    body = mk.lathe(f"{name}.body", [
+        (0.0, 0.0), (0.30, 0.0), (0.30, 0.09), (0.20, 0.14), (0.155, 0.24),
+        (0.135, 0.90), (0.155, 0.98), (0.145, 1.12), (0.175, 1.20),
+        (0.155, 1.28), (0.11, 1.34), (0.0, 1.38)], 14,
+        center=(x, y, z), col=col)
+    mk.shade_smooth(body, math.radians(36))
+    parts.append(body)
+    spout = mk.lathe(f"{name}.spout",
+                     [(0.075, 0.0), (0.070, 0.30), (0.085, 0.34)], 10, col=col)
+    mk.transform(spout, Matrix.Translation((x, y, z + 0.98))
+                 @ Matrix.Rotation(yaw, 4, 'Z')
+                 @ Matrix.Rotation(math.radians(104), 4, 'X'))
+    parts.append(spout)
+    handle = mk.box(f"{name}.handle", (0, 0, 0), (0.05, 0.62, 0.05), col)
+    mk.transform(handle, Matrix.Translation((x, y, z + 1.24))
+                 @ Matrix.Rotation(yaw, 4, 'Z')
+                 @ Matrix.Translation((0.0, -0.24, 0.0))
+                 @ Matrix.Rotation(math.radians(22), 4, 'X'))
+    parts.append(handle)
+    obj = mk.join(parts, name, col)
+    mk.set_material(obj, lib.iron)
+    return obj
+
+
+def stable_yard(lib: Library, col) -> list[bpy.types.Object]:
+    """A cobbled yard in front of the coach house, with a dovecote and pump."""
+    made = []
+    cx, cy = config.CARRIAGE_HOUSE_XY
+    yard_y = cy + 11.5
+    made.append(T.ribbon("yard.cobbles",
+                         [(cx - 11.0, yard_y), (cx + 11.0, yard_y)],
+                         13.0, lib, col, material=lib.cobbles, lift=0.03,
+                         layer=12))
+    made.append(dovecote("yard.dovecote", cx + 8.4, yard_y + 4.2, lib, col))
+    made.append(pump("yard.pump", cx - 8.6, yard_y + 3.4, lib, col,
+                     yaw=math.radians(200)))
+    trough = mk.box("yard.trough", (cx - 8.6, yard_y + 2.4,
+                                    T.height(cx - 8.6, yard_y + 2.4) + 0.28),
+                    (0.85, 2.0, 0.56), col)
+    mk.set_material(trough, lib.stone)
+    made.append(trough)
+    return made
+
+
 def cupola(name: str, cx: float, cy: float, base_z: float, lib: Library, col,
            width: float = 2.1, height: float = 2.4) -> list[bpy.types.Object]:
     """A louvred belvedere with an ogee cap and a vane."""
