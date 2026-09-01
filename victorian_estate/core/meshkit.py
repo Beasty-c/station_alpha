@@ -325,6 +325,27 @@ def lathe(name: str, profile: Sequence[Vec2], segments: int = 20,
     return obj_from(name, verts, faces, col=col)
 
 
+def disc(name: str, center: Vec3, radius: float, segments: int = 32,
+         up: bool = True, col: bpy.types.Collection | None = None
+         ) -> bpy.types.Object:
+    """A flat circular face.
+
+    Worth having as its own primitive: revolving a horizontal profile such as
+    [(0, 0), (r, 0)] describes a disc with no thickness, and the revolve's own
+    fan plus the end cap then land on each other and z-fight to black.
+    """
+    cx, cy, cz = center
+    verts = [(cx, cy, cz)]
+    for i in range(segments):
+        a = TAU * i / segments
+        verts.append((cx + radius * math.cos(a), cy + radius * math.sin(a), cz))
+    faces = []
+    for i in range(segments):
+        j = (i + 1) % segments
+        faces.append((0, 1 + i, 1 + j) if up else (0, 1 + j, 1 + i))
+    return obj_from(name, verts, faces, col=col)
+
+
 # ---------------------------------------------------------------------------
 # Sweep - carry a cross-section along a path, mitring the corners
 # ---------------------------------------------------------------------------
@@ -675,6 +696,28 @@ def orient_outward(obj: bpy.types.Object, center: Vec3,
         bm.to_mesh(me)
         bm.free()
         me.update()
+    return obj
+
+
+def orient_up(obj: bpy.types.Object) -> bpy.types.Object:
+    """Flip any face that points downward.
+
+    Flat open surfaces - a gravel walk, a pond, a paved terrace - have no
+    volume for recalc_face_normals to orient from, so which way they end up
+    facing depends on the order the outline happened to be given in.  A ground
+    overlay that ends up face-down shades almost black once a bump node
+    tilts its already-inverted normal below the horizon, so state the
+    direction rather than letting the winding decide it.
+    """
+    flipped = [p.index for p in obj.data.polygons if p.normal.z < 0.0]
+    if flipped:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.reverse_faces(bm, faces=[bm.faces[i] for i in flipped])
+        bm.to_mesh(obj.data)
+        bm.free()
+        obj.data.update()
     return obj
 
 

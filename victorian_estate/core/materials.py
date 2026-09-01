@@ -590,7 +590,7 @@ def turf(name: str = "Lawn", color: RGB | None = None,
     nt.links.new(fine.outputs["Fac"], m2.inputs["Fac"])
 
     m3 = _node(nt, "ShaderNodeMixRGB", -240, 0)
-    _set(m3, "Fac", 0.045)                     # mower stripes, kept faint
+    _set(m3, "Fac", 0.022)                     # mower stripes, barely there
     _set(m3, "Color2", _rgba([min(1, c * 1.35) for c in color]))
     nt.links.new(m2.outputs["Color"], m3.inputs["Color1"])
     nt.links.new(stripe.outputs["Fac"], m3.inputs["Fac"])
@@ -680,8 +680,9 @@ def water(name: str = "Water", color: RGB | None = None,
                 coords=coords.outputs["Object"])
     n2 = _noise(nt, -960, -180, scale=70.0, detail=4.0,
                 coords=coords.outputs["Object"])
-    bsdf = _principled(nt, base_color=_rgba(color), roughness=0.03,
-                       transmission_weight=0.92, ior=1.333)
+    bsdf = _principled(nt, base_color=_rgba(color), roughness=0.045,
+                       transmission_weight=0.55, ior=1.333)
+    _set(bsdf, "Specular IOR Level", 0.62)
     b1 = _bump(nt, n1.outputs["Fac"], 0.22 * ripple, 0.04, x=60, y=-380)
     b2 = _node(nt, "ShaderNodeBump", 230, -260)
     _set(b2, "Strength", 0.10 * ripple); _set(b2, "Distance", 0.006)
@@ -803,7 +804,7 @@ class Library:
         self.hedge = foliage("Foliage.Hedge", P["hedge"], translucency=0.2,
                              scale=90.0)
         self.leaf = foliage("Foliage.Leaf", P["leaf"], translucency=0.4)
-        self.leaf_copper = foliage("Foliage.Copper", (0.20, 0.055, 0.028),
+        self.leaf_copper = foliage("Foliage.Copper", (0.115, 0.030, 0.018),
                                    translucency=0.45)
         self.bark = bark()
         self.water = water()

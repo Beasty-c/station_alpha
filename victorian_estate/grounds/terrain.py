@@ -102,14 +102,24 @@ def build(lib: Library, col, size: float = SIZE, step: float = 1.15
 # Helpers for everything that has to sit on the ground
 # ---------------------------------------------------------------------------
 
+#: Vertical separation between surfacing layers.
+#:
+#: Every surfaced area is laid a little above the ground, so two of them that
+#: cross - a walk over a drive, the carriage sweep over a path - end up
+#: exactly coplanar and z-fight, which resolves to hard black and white
+#: patches at the crossing.  Overlays that can overlap are given different
+#: layer numbers; 6 mm apart is invisible and settles the depth test.
+LAYER = 0.006
+
+
 def drape(points, lift: float = 0.0):
     """Lift a list of (x, y) onto the terrain, returning (x, y, z)."""
     return [(x, y, height(x, y) + lift) for x, y in points]
 
 
 def ribbon(name: str, path, width: float, lib: Library, col,
-           material=None, lift: float = 0.035, kerb: float = 0.0
-           ) -> bpy.types.Object:
+           material=None, lift: float = 0.035, kerb: float = 0.0,
+           layer: int = 0) -> bpy.types.Object:
     """A surfaced strip - drive, path or terrace edge - laid on the ground.
 
     The strip is re-sampled finely enough to follow the ground rather than
@@ -127,6 +137,7 @@ def ribbon(name: str, path, width: float, lib: Library, col,
 
     verts, faces = [], []
     half = width / 2.0
+    lift = lift + layer * LAYER
     for i, p in enumerate(dense):
         prev = dense[max(0, i - 1)]
         nxt = dense[min(len(dense) - 1, i + 1)]
@@ -143,7 +154,7 @@ def ribbon(name: str, path, width: float, lib: Library, col,
         faces.append((a, a + 2, a + 3, a + 1))
 
     obj = mk.obj_from(name, verts, faces, col=col)
-    mk.recalc_normals(obj)
+    mk.orient_up(obj)
     mk.set_material(obj, material or lib.gravel)
     if kerb:
         mk.solidify(obj, kerb)
@@ -152,8 +163,9 @@ def ribbon(name: str, path, width: float, lib: Library, col,
 
 def disc(name: str, cx: float, cy: float, r: float, lib: Library, col,
          material=None, lift: float = 0.035, segments: int = 72,
-         rings: int = 6) -> bpy.types.Object:
+         rings: int = 6, layer: int = 0) -> bpy.types.Object:
     """A circular surfaced area (a carriage turn, a garden roundel)."""
+    lift = lift + layer * LAYER
     verts = [(cx, cy, height(cx, cy) + lift)]
     for ring in range(1, rings + 1):
         rr = r * ring / rings
@@ -172,15 +184,16 @@ def disc(name: str, cx: float, cy: float, r: float, lib: Library, col,
             j = (i + 1) % segments
             faces.append((base + i, nxt + i, nxt + j, base + j))
     obj = mk.obj_from(name, verts, faces, col=col)
-    mk.recalc_normals(obj)
+    mk.orient_up(obj)
     mk.set_material(obj, material or lib.gravel)
     return obj
 
 
 def annulus(name: str, cx: float, cy: float, r_in: float, r_out: float,
             lib: Library, col, material=None, lift: float = 0.035,
-            segments: int = 96) -> bpy.types.Object:
+            segments: int = 96, layer: int = 0) -> bpy.types.Object:
     """A ring - the carriage sweep around a fountain."""
+    lift = lift + layer * LAYER
     verts, faces = [], []
     for i in range(segments):
         a = math.tau * i / segments
@@ -191,6 +204,6 @@ def annulus(name: str, cx: float, cy: float, r_in: float, r_out: float,
         j = (i + 1) % segments
         faces.append((i * 2, j * 2, j * 2 + 1, i * 2 + 1))
     obj = mk.obj_from(name, verts, faces, col=col)
-    mk.recalc_normals(obj)
+    mk.orient_up(obj)
     mk.set_material(obj, material or lib.gravel)
     return obj

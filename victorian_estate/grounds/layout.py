@@ -92,19 +92,20 @@ def parterre(lib: Library, col) -> list[bpy.types.Object]:
     half = config.PARTERRE_SIZE / 2
     walk = 2.3
 
+    # Layers keep the four crossings of the walks from z-fighting.
     made.append(T.ribbon("parterre.walkNS", [(cx, cy - half), (cx, cy + half)],
-                         walk, lib, col, material=lib.gravel))
+                         walk, lib, col, material=lib.gravel, layer=6))
     made.append(T.ribbon("parterre.walkEW", [(cx - half, cy), (cx + half, cy)],
-                         walk, lib, col, material=lib.gravel))
+                         walk, lib, col, material=lib.gravel, layer=7))
     for sgn in (-1, 1):
         made.append(T.ribbon(f"parterre.edge{sgn}",
                              [(cx - half, cy + sgn * half),
                               (cx + half, cy + sgn * half)], walk, lib, col,
-                             material=lib.gravel))
+                             material=lib.gravel, layer=8))
         made.append(T.ribbon(f"parterre.side{sgn}",
                              [(cx + sgn * half, cy - half),
                               (cx + sgn * half, cy + half)], walk, lib, col,
-                             material=lib.gravel))
+                             material=lib.gravel, layer=9))
 
     quarter = half - walk
     for qi, (sx, sy) in enumerate([(-1, -1), (1, -1), (1, 1), (-1, 1)]):

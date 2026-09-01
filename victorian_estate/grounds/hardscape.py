@@ -38,25 +38,24 @@ def drive(lib: Library, col) -> list[bpy.types.Object]:
     # house comes into view obliquely.
     approach = _bezier_path((0.0, config.GATE_Y), (5.0, 78.0),
                             (-7.0, 62.0), (0.0, cy + r), 30)
-    made.append(T.ribbon("drive.approach", approach, w, lib, col))
+    made.append(T.ribbon("drive.approach", approach, w, lib, col, layer=0))
 
     made.append(T.annulus("drive.turn", 0.0, cy, r - w / 2, r + w / 2,
-                          lib, col))
+                          lib, col, layer=1))
 
     # A spur from the turn to the front steps, and one to the porte-cochere
     # side of the house.
     front = _bezier_path((0.0, cy - r), (0.0, cy - r - 4.0),
                          (1.1, 16.0), (1.1, 11.6), 14)
-    made.append(T.ribbon("drive.front", front, 4.4, lib, col))
+    made.append(T.ribbon("drive.front", front, 4.4, lib, col, layer=2))
 
     service = _bezier_path((-r * 0.86, cy - r * 0.5), (-24.0, 22.0),
                            (-30.0, -8.0), config.CARRIAGE_HOUSE_XY, 28)
-    made.append(T.ribbon("drive.service", service, 4.2, lib, col))
+    made.append(T.ribbon("drive.service", service, 4.2, lib, col, layer=2))
 
     # A gravel forecourt in front of the veranda steps.
-    court = [(-8.0, 11.4), (11.6, 11.4), (11.6, 15.4), (-8.0, 15.4)]
     made.append(T.ribbon("drive.forecourt",
-                         [(-8.0, 13.4), (11.6, 13.4)], 4.6, lib, col))
+                         [(-8.0, 13.4), (11.6, 13.4)], 4.6, lib, col, layer=3))
 
     # Flagged garden walks.
     walks = [
@@ -68,7 +67,7 @@ def drive(lib: Library, col) -> list[bpy.types.Object]:
     ]
     for i, pts in enumerate(walks):
         made.append(T.ribbon(f"walk{i}", pts, 2.1, lib, col,
-                             material=lib.stone, lift=0.03))
+                             material=lib.stone, lift=0.03, layer=5))
     return made
 
 
@@ -183,8 +182,8 @@ def fountain(lib: Library, col, segments: int = 48) -> list[bpy.types.Object]:
     mk.set_material(basin, lib.stone)
     made.append(basin)
 
-    water = mk.lathe("fountain.water", [(0.0, 0.0), (r - 0.06, 0.0)],
-                     segments, center=(cx, cy, z + 0.46), col=col)
+    water = mk.disc("fountain.water", (cx, cy, z + 0.44), r - 0.06,
+                    segments, col=col)
     mk.set_material(water, lib.water)
     made.append(water)
 

@@ -207,7 +207,7 @@ def two_point(shot: Shot) -> bpy.types.Object:
 PRESETS = {
     #             width  height  samples  bounces  denoise
     "thumb":      (480,   270,    16,      3,      True),
-    "draft":      (960,   540,    32,      4,      True),
+    "draft":      (960,   540,    32,      5,      True),
     "preview":    (1600,  900,    96,      6,      True),
     "final":      (2560,  1440,   512,     10,     True),
     "hero":       (3840,  2160,   1200,    12,     True),
