@@ -32,6 +32,9 @@ south-west corner.
   spandrels, a bracketed entablature and a balustraded flat over it, with the
   drive running through.
 - Cast hopper heads and downpipes with collars, ears and swan-neck shoes.
+- Attic lights in the gable fields, snow guards above the mansard eaves, and
+  openings that differ from one another - a fifth of the lower sashes stand
+  partly raised, a quarter carry a roller blind half drawn.
 - The entrance: panelled double leaves with an etched upper light, stained
   sidelights, a fanlight transom and a bracketed hood.
 - A Second Empire mansard slated slate by slate, with patterned band courses,
@@ -56,8 +59,11 @@ into a level terrace around the house.
   centres and corners, flower beds, and a sundial at the crossing.
 - Brick perimeter wall with piers and moulded coping, stone gate piers with
   urns, and wrought-iron carriage gates.
-- Carriage house with arched doors, a hay loft and a louvred cupola; an
-  iron-and-glass conservatory; an octagonal gazebo; a gate lodge; a lake.
+- Carriage house with arched doors, a hay loft and a louvred cupola, on a
+  cobbled yard with a dovecote and a pump over its trough.
+- An iron-and-glass conservatory, planted: a tiled walk, iron staging, pots
+  and tub palms, because the point of a glasshouse is that you see into it.
+- An octagonal gazebo, a gate lodge, a lake, and light iron park railings.
 - A walled kitchen garden with cross walks, rotation beds, cold frames and a
   potting shed, and an orchard planted as a quincunx.
 - Cast-iron gas lamp standards, park benches, urns on plinths and statuary.
@@ -108,6 +114,7 @@ a render, so two scripts check the things that go wrong:
 python3 scripts/check_profiles.py      # every moulding profile
 python3 scripts/audit_geometry.py      # every mesh in the built model
 python3 scripts/check_reproducible.py  # the same model twice
+python3 scripts/elevations.py          # the four elevations, in parallel
 ```
 
 `check_profiles.py` checks each profile is closed, wound counter-clockwise,
@@ -137,5 +144,9 @@ The rest came from looking at renders, which is the only way to catch the
 faults that are geometrically valid but architecturally wrong: eaves brackets
 lying flat against the wall instead of standing edge-on to it, bargeboards
 rotated up off the ridge instead of down the rake, a veranda roof cutting
-across the heads of the windows behind it, and an attic storey whose windows
-did not fit under their own cornice.
+across the heads of the windows behind it, an attic storey whose windows did
+not fit under their own cornice, ivy climbing thin air beside the house
+rather than up it, and - the one that took an orthographic elevation to see -
+the wing and pavilion measuring their bay offsets from the world origin
+instead of from their own centres, which put every one of their openings off
+its wall.
