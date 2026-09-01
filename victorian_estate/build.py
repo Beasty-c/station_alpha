@@ -7,7 +7,7 @@ import time
 import bpy
 
 from .core import config, meshkit as mk, materials as mat
-from .mansion import roof, shell
+from .mansion import roof, shell, tower, veranda
 
 
 def reset_scene() -> None:
@@ -34,6 +34,16 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
               f"{sum(len(o.data.vertices) for o in made):>9d} verts")
 
     stage("shell", lambda: shell.build(lib, house))
+
+    porch = mk.collection("Veranda", root)
+    plan = veranda.front_plan()
+    stage("veranda", lambda: veranda.build(plan, lib, porch))
+    stage("steps", lambda: [veranda.steps(
+        "veranda.steps", (1.10, config.MAIN.y1 + config.VERANDA_DEPTH),
+        (0.0, 1.0), 3.30, plan.deck_z, lib, porch)])
+
+    tow = mk.collection("Tower", root)
+    stage("tower", lambda: tower.build(lib, tow))
 
     roofs = mk.collection("Roof", root)
     eave = config.Z_CORNICE + 0.86

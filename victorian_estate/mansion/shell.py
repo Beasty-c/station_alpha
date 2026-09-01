@@ -24,7 +24,7 @@ from mathutils import Matrix
 
 from ..core import config, meshkit as mk, ornament as orn
 from ..core.materials import Library
-from . import windows as W
+from . import entrance, windows as W
 
 WALL_T = 0.40
 CORNER_BOARD = 0.26
@@ -295,9 +295,23 @@ def build_block(b: config.Block, schedule: dict[str, list[Bay]],
                     continue
                 deck, _ = FLOORS[floor]
                 z = deck + config.WIN_SILL
-                if bay.kind == "door":
-                    continue                      # the porch code handles it
                 if bay.kind == "blank":
+                    continue
+                if bay.kind == "door":
+                    if floor != 1:
+                        continue
+                    poly = entrance.opening_polygon(**bay.spec.get("door", {}))
+                    cutter = mk.prism_y(f"{b.name}.doorcut", poly,
+                                        -WALL_T - 0.25, 0.25, col)
+                    px, py, _ = elev.point(bay.offset, 0.0)
+                    mk.transform(cutter, Matrix.Translation((px, py, deck))
+                                 @ Matrix.Rotation(elev.yaw, 4, 'Z'))
+                    mk.boolean(wall, cutter)
+                    door, _ = entrance.build(f"{b.name}.entrance", lib, col,
+                                             wall_t=WALL_T,
+                                             **bay.spec.get("door", {}))
+                    W.place(door, px, py, deck, elev.yaw)
+                    joinery.append(door)
                     continue
                 spec = window_spec(floor, **bay.spec.get(floor, {}))
                 spec.wall_t = WALL_T
@@ -332,7 +346,7 @@ def main_schedule() -> dict[str, list[Bay]]:
     return {
         "south": [
             Bay(-2.30, floors=(1, 2, 3)),
-            Bay(1.10, "door", floors=(2, 3)),
+            Bay(1.10, "door", floors=(1, 2, 3)),
             Bay(4.40, floors=(1, 2, 3)),
             Bay(7.30, floors=(1, 2, 3)),
         ],
