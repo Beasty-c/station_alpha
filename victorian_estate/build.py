@@ -50,9 +50,11 @@ VIEWS = (
          elevation=20, rotation=18, exposure=-0.58),
     View(Shot("Cam.Estate", (96.0, 118.0, 86.0), (-4.0, 6.0, 6.0), lens=52),
          elevation=33, rotation=126, exposure=-0.45, sky=0.50, energy=4.8),
-    View(Shot("Cam.Garden", (-62.0, -18.0, 16.0), (-24.0, 6.0, 10.0), lens=48),
-         elevation=24, rotation=232, exposure=-0.55),
-    View(Shot("Cam.Stables", (-48.0, -54.0, 14.0), (-24.0, -26.0, 6.0), lens=50),
+    # Stood inside the parterre's own tree-free zone, looking back across it
+    # to the house: outside that zone the belt planting closes over the view.
+    View(Shot("Cam.Garden", (-48.0, -4.0, 9.0), (-16.0, 3.5, 7.5), lens=42),
+         elevation=26, rotation=236, exposure=-0.55),
+    View(Shot("Cam.Stables", (-38.5, -40.0, 9.5), (-24.0, -22.0, 5.0), lens=44),
          elevation=23, rotation=286, exposure=-0.55),
     # Under the veranda roof, so the key has to come in almost horizontally.
     View(Shot("Cam.Veranda", (7.2, 19.5, 2.3), (-4.0, 8.0, 3.2), lens=34),
