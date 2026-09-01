@@ -273,6 +273,16 @@ def lathe(name: str, profile: Sequence[Vec2], segments: int = 20,
     leaving a ring of coincident points.
     """
     prof = [(max(0.0, float(r)), float(z)) for r, z in profile]
+    # Two consecutive points on the axis describe nothing: the quad between
+    # them collapses to an edge, so no face references the second one and it
+    # is left as a loose vertex.  Keep only the last of each such run.
+    collapsed: list[tuple[float, float]] = []
+    for point in prof:
+        if collapsed and point[0] < 1e-9 and collapsed[-1][0] < 1e-9:
+            collapsed[-1] = point
+        else:
+            collapsed.append(point)
+    prof = collapsed
     if len(prof) < 2:
         raise ValueError(f"lathe({name}): profile needs >= 2 points")
 

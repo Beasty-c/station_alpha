@@ -335,14 +335,15 @@ def place_dormers(b: config.Block, lib: Library, col, eave_z: float,
         span = b.sx if side in ("south", "north") else b.sy
         for i in range(count):
             off = -span / 2 + span * (i + 0.5) / count
+            # Offsets are measured from the block's own centre.
             if side == "south":
-                px, py = off, b.y1 + overhang - inset
+                px, py = b.cx + off, b.y1 + overhang - inset
             elif side == "north":
-                px, py = -off, b.y0 - overhang + inset
+                px, py = b.cx - off, b.y0 - overhang + inset
             elif side == "east":
-                px, py = b.x1 + overhang - inset, -off
+                px, py = b.x1 + overhang - inset, b.cy - off
             else:
-                px, py = b.x0 - overhang + inset, off
+                px, py = b.x0 - overhang + inset, b.cy + off
             made.append(mk.instance(proto, f"{b.name}.dormer.{side}.{i}",
                                     (px, py, eave_z + 0.30),
                                     rotation=(0.0, 0.0, yaw), col=col))

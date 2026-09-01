@@ -66,16 +66,18 @@ class Elevation:
         """A point on the wall face, ``offset`` metres along it from centre.
 
         Offset runs left-to-right as seen from outside, so a bay schedule
-        reads the same way on every elevation.
+        reads the same way on every elevation, and is measured from the
+        block's own centre - not from the world origin, which only happens to
+        be the same thing for the main block.
         """
         b = self.block
         if self.side == "south":
-            return (offset, b.y1, z)
+            return (b.cx + offset, b.y1, z)
         if self.side == "north":
-            return (-offset, b.y0, z)
+            return (b.cx - offset, b.y0, z)
         if self.side == "east":
-            return (b.x1, -offset, z)
-        return (b.x0, offset, z)
+            return (b.x1, b.cy - offset, z)
+        return (b.x0, b.cy + offset, z)
 
 
 # ---------------------------------------------------------------------------
