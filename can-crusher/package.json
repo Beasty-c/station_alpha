@@ -1,0 +1,24 @@
+{
+  "name": "can-crusher",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A low-poly arcade game about stomping an aluminium can as flat and straight as you can.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}

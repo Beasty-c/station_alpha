@@ -1,0 +1,27 @@
+/** The whole game's colour vocabulary, in one place. */
+export const PALETTE = {
+  /** Workshop air, used for the background and the fog. */
+  air: 0x9fa6ab,
+  slab: 0x77746e,
+  slabEdge: 0x615f5a,
+  slabLine: 0x8b8880,
+  wall: 0x8e9298,
+  wallDark: 0x74787d,
+  crate: 0x8a7354,
+  crateDark: 0x6f5c44,
+  aluminium: 0xd9dee3,
+  aluminiumDark: 0xb7bfc6,
+  canBand: 0x17b3a2,
+  canBandDark: 0x0d8577,
+  shoe: 0xe8543f,
+  shoeDark: 0xc63f2d,
+  sole: 0x33383d,
+  soleTread: 0x22262a,
+  midsole: 0xf1ece2,
+  trouser: 0x4a5a72,
+  trouserDark: 0x3a4759,
+  lace: 0xf3ece0,
+  sock: 0xf0e9dc,
+  reticle: 0xffd166,
+  dust: 0xcfc7b8,
+} as const;
