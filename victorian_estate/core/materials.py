@@ -569,13 +569,13 @@ def turf(name: str = "Lawn", color: RGB | None = None,
     coords = _obj_coords(nt)
     fine = _noise(nt, -1000, 120, scale=scale, detail=6.0, roughness=0.7,
                   coords=coords.outputs["Generated"])
-    broad = _noise(nt, -1000, -180, scale=6.0, detail=8.0,
+    broad = _noise(nt, -1000, -180, scale=22.0, detail=9.0, roughness=0.62,
                    coords=coords.outputs["Generated"])
     stripe = _node(nt, "ShaderNodeTexWave", -1000, -460)
     stripe.wave_type = 'BANDS'
     stripe.bands_direction = 'X'
-    _set(stripe, "Scale", 26.0)
-    _set(stripe, "Distortion", 1.5)
+    _set(stripe, "Scale", 90.0)
+    _set(stripe, "Distortion", 2.4)
     nt.links.new(coords.outputs["Generated"], stripe.inputs["Vector"])
 
     m1 = _node(nt, "ShaderNodeMixRGB", -700, 0)
@@ -590,7 +590,7 @@ def turf(name: str = "Lawn", color: RGB | None = None,
     nt.links.new(fine.outputs["Fac"], m2.inputs["Fac"])
 
     m3 = _node(nt, "ShaderNodeMixRGB", -240, 0)
-    _set(m3, "Fac", 0.10)                      # mower stripes
+    _set(m3, "Fac", 0.045)                     # mower stripes, kept faint
     _set(m3, "Color2", _rgba([min(1, c * 1.35) for c in color]))
     nt.links.new(m2.outputs["Color"], m3.inputs["Color1"])
     nt.links.new(stripe.outputs["Fac"], m3.inputs["Fac"])

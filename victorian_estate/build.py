@@ -7,6 +7,7 @@ import time
 import bpy
 
 from .core import config, meshkit as mk, materials as mat
+from .grounds import hardscape, layout, outbuildings, terrain
 from .mansion import roof, shell, tower, veranda
 
 
@@ -65,6 +66,23 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
         roof.chimney("chimney.wing", lib, roofs, -2.0, -13.6, config.Z_F2,
                      config.WING.z1 + 5.4, 1.10, 0.85, 2),
     ])
+
+    site = mk.collection("Grounds", root)
+    stage("terrain", lambda: terrain.build(lib, site))
+    stage("drive", lambda: hardscape.drive(lib, site))
+    stage("terrace", lambda: hardscape.terrace(lib, site))
+    stage("fountain", lambda: hardscape.fountain(lib, site))
+    stage("perimeter", lambda: hardscape.perimeter(lib, site))
+
+    works = mk.collection("Outbuildings", root)
+    stage("carriage house", lambda: outbuildings.carriage_house(lib, works))
+    stage("conservatory", lambda: outbuildings.conservatory(lib, works))
+    stage("gazebo", lambda: outbuildings.gazebo(lib, works))
+    stage("lodge", lambda: outbuildings.lodge(lib, works))
+    stage("pond", lambda: outbuildings.pond(lib, works))
+
+    green = mk.collection("Planting", root)
+    stage("planting", lambda: layout.build(lib, green, detail))
 
     total_v = sum(len(o.data.vertices) for group in out.values() for o in group)
     total_f = sum(len(o.data.polygons) for group in out.values() for o in group)

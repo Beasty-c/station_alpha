@@ -68,6 +68,12 @@ def slate_field(name: str, face: Face, lib: Library, col,
     patterned bands on a Second Empire mansard are made.
     """
     rng = random.Random(seed)
+    # Every roof slope in the model faces upward, so a face whose normal
+    # points down was wound the wrong way round.  Mirroring it horizontally
+    # reverses the normal while leaving the courses running horizontally,
+    # which swapping a diagonal pair would not.
+    if face.normal.z < 0.0:
+        face = Face(face.br, face.bl, face.tl, face.tr)
     normal = face.normal
     slope = face.slope_length
     courses = max(1, int(math.ceil(slope / exposure)))
@@ -414,15 +420,18 @@ def gable_roof(b: config.Block, lib: Library, col, eave_z: float,
                     orn.bargeboard_outline(run, 0.34, max(4, int(run / 0.62)),
                                            0.22, "drop"),
                     -0.055, 0.055, col)
+                # The board runs from the ridge DOWN the rake.  A rotation of
+                # +ang about Y sends local +X to (cos, 0, -sin); the mirrored
+                # board runs along -X and so needs the opposite sign.
                 ang = math.atan2(rise, half_span)
                 if along_x:
                     m = (Matrix.Translation((x + sign * 0.09, b.cy, ridge_z))
                          @ Matrix.Rotation(math.pi / 2, 4, 'Z')
-                         @ Matrix.Rotation(s * -ang, 4, 'Y')
+                         @ Matrix.Rotation(s * ang, 4, 'Y')
                          @ Matrix.Scale(s, 4, (1.0, 0.0, 0.0)))
                 else:
                     m = (Matrix.Translation((b.cx, y + sign * 0.09, ridge_z))
-                         @ Matrix.Rotation(s * -ang, 4, 'Y')
+                         @ Matrix.Rotation(s * ang, 4, 'Y')
                          @ Matrix.Scale(s, 4, (1.0, 0.0, 0.0)))
                 mk.transform(board, m)
                 mk.recalc_normals(board)
