@@ -360,7 +360,8 @@ def place_dormers(b: config.Block, lib: Library, col, eave_z: float,
 def gable_roof(b: config.Block, lib: Library, col, eave_z: float,
                pitch: float = 52.0, along_x: bool = True,
                overhang: float = 0.55, bargeboard: bool = True,
-               slate: bool = True) -> list[bpy.types.Object]:
+               slate: bool = True, gable_window: str = "round",
+               gable_window_rise: float = 0.42) -> list[bpy.types.Object]:
     """A pitched roof with sawn bargeboards and a finial at each gable apex."""
     made: list[bpy.types.Object] = []
     hx, hy = b.sx / 2 + overhang, b.sy / 2 + overhang
@@ -412,6 +413,34 @@ def gable_roof(b: config.Block, lib: Library, col, eave_z: float,
             apex = Vector((b.cx, y, ridge_z))
         mk.set_material(wall, lib.body_upper)
         made.append(wall)
+
+        # An attic light in the gable field.  It is the one opening that reads
+        # from a distance on an otherwise blank triangle, and every house of
+        # this date has one.
+        if gable_window != "none":
+            spec = W.WindowSpec(
+                width=1.05, height=0.95, head=gable_window,
+                upper_lights=(1, 1), lower_lights=(1, 1), wall_t=0.30,
+                reveal=0.09, casing_w=0.105, casing_d=0.034,
+                sill_proj=0.09, sill_h=0.07, apron=False, hood="none",
+                corner_blocks=False, stained=(gable_window == "round"))
+            wz = eave_z + rise * gable_window_rise
+            if along_x:
+                wx, wy, wyaw = x, b.cy, (-math.pi / 2 if sign > 0
+                                         else math.pi / 2)
+                wx = x - sign * 0.02
+            else:
+                wx, wy, wyaw = b.cx, y - sign * 0.02, (0.0 if sign > 0
+                                                       else math.pi)
+            cut = mk.prism_y(f"{b.name}.gwcut{end}",
+                             mk.offset_polygon(W.opening_outline(spec), 0.005),
+                             -0.9, 0.9, col)
+            mk.transform(cut, Matrix.Translation((wx, wy, wz))
+                         @ Matrix.Rotation(wyaw, 4, 'Z'))
+            mk.boolean(wall, cut)
+            gw = W.build(f"{b.name}.gablewin{end}", spec, lib, col)
+            W.place(gw, wx, wy, wz, wyaw)
+            made.append(gw)
 
         if bargeboard:
             for s in (-1, 1):

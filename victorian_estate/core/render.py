@@ -205,6 +205,36 @@ def two_point(shot: Shot) -> bpy.types.Object:
     return obj
 
 
+def orthographic(name: str, centre, direction, scale: float,
+                 distance: float = 260.0, near: float | None = None
+                 ) -> bpy.types.Object:
+    """A parallel-projection camera, for elevations and plans.
+
+    ``direction`` is the way the camera looks and ``scale`` is the width of
+    the frame in metres.  ``near`` is a point the near clip plane should pass
+    through: a parallel camera pulled far enough back to be parallel is also
+    far enough back to have half the park in front of it, so an elevation
+    needs the foreground cut away.
+
+    Elevations drawn this way are the quickest way to check that string
+    courses line through, that openings sit on their bays, and that nothing
+    is floating - all of which perspective hides.
+    """
+    data = bpy.data.cameras.new(name)
+    data.type = 'ORTHO'
+    data.ortho_scale = scale
+    d = Vector(direction).normalized()
+    eye = Vector(centre) - d * distance
+    data.clip_start = ((Vector(near) - eye).dot(d) if near is not None
+                       else 0.1)
+    data.clip_end = distance * 3.0
+    obj = bpy.data.objects.new(name, data)
+    obj.location = eye
+    obj.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
 # ---------------------------------------------------------------------------
 # Render presets
 # ---------------------------------------------------------------------------

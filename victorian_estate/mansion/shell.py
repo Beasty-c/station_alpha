@@ -414,18 +414,27 @@ def main_schedule() -> dict[str, list[Bay]]:
 
 
 def wing_schedule() -> dict[str, list[Bay]]:
-    small = {1: dict(width=1.00, hood="label", hood_brackets=False,
-                     corner_blocks=False),
-             2: dict(width=1.00, hood="label", corner_blocks=False)}
+    """The service wing.
+
+    Its openings are plainer and more regular than the show fronts - the
+    same house, built to a lower specification round the back, which is how
+    these wings actually were.
+    """
+    small = {1: dict(width=1.00, height=config.WIN_H_2, hood="label",
+                     hood_brackets=False, corner_blocks=False,
+                     upper_lights=(2, 1)),
+             2: dict(width=1.00, height=config.WIN_H_2 - 0.30, hood="label",
+                     corner_blocks=False)}
     return {
-        "west": [Bay(-2.90, floors=(1, 2), spec=small),
+        "west": [Bay(-3.10, floors=(1, 2), spec=small),
                  Bay(0.00, floors=(1, 2), spec=small),
-                 Bay(2.90, floors=(1, 2), spec=small)],
-        "east": [Bay(-2.90, floors=(1, 2), spec=small),
-                 Bay(2.90, floors=(1, 2), spec=small)],
-        "north": [Bay(-3.40, floors=(1, 2), spec=small),
+                 Bay(3.10, floors=(1, 2), spec=small)],
+        "east": [Bay(-3.10, floors=(1, 2), spec=small),
+                 Bay(0.00, floors=(1, 2), spec=small),
+                 Bay(3.10, floors=(1, 2), spec=small)],
+        "north": [Bay(-3.60, floors=(1, 2), spec=small),
                   Bay(0.00, floors=(1, 2), spec=small),
-                  Bay(3.40, floors=(1, 2), spec=small)],
+                  Bay(3.60, floors=(1, 2), spec=small)],
     }
 
 
