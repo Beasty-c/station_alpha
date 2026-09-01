@@ -54,10 +54,9 @@ FOLIAGE_MATERIAL = {
 }
 
 
-def _blob(rng: random.Random, radius: float, rough: float = 0.34
-          ) -> tuple[list, list]:
+def _blob(rng: random.Random, radius: float, rough: float = 0.34,
+          rings: int = 5, seg: int = 9) -> tuple[list, list]:
     """A low-poly deformed sphere - one puff of foliage."""
-    rings, seg = 4, 7
     verts, faces = [], []
     top = (0.0, 0.0, radius * rng.uniform(0.9, 1.15))
     bottom = (0.0, 0.0, -radius * rng.uniform(0.75, 1.0))
@@ -135,8 +134,13 @@ def tree(name: str, species: str, lib: Library, col, seed: int = 0,
         tip = segment(base, direction, length,
                       radius, radius * spec["taper"])
         if level >= spec["levels"] or radius < 0.03:
-            foliage(tip, spec["blob"] * spec["tips"] * scale
-                    * rng.uniform(0.7, 1.25))
+            # Two or three smaller puffs along the last twig read better than
+            # one large one: the silhouette breaks up at leaf-clump scale
+            # instead of showing a single faceted ball.
+            for t in (0.35, 0.72, 1.0):
+                foliage(base.lerp(tip, t) if t < 1.0 else tip,
+                        spec["blob"] * spec["tips"] * scale
+                        * rng.uniform(0.46, 0.78))
             return
         # Foliage on the penultimate level too, so the canopy has depth
         # rather than being a shell of blobs on the outermost twigs.

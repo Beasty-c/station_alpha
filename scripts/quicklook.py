@@ -30,10 +30,10 @@ VIEWS = {
     "stables": ((-48.0, -54.0, 14.0), (-24.0, -26.0, 6.0), 50),
 }
 loc, tgt, lens = VIEWS[view]
-rr.daylight(elevation=27, rotation=118, sky_strength=1.0, sun_energy=2.6,
-            softness=1.1, warmth=0.35)
+rr.daylight(elevation=27, rotation=118, sky_strength=0.50, sun_energy=4.8,
+            softness=0.65, warmth=0.35)
 cam = rr.two_point(rr.Shot(view, loc, tgt, lens=lens))
-rr.configure(preset, exposure=-0.35)
+rr.configure(preset, exposure=-0.15)
 out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                    "renders", f"quicklook_{view}.png")
 rr.render_to(out, cam)

@@ -110,7 +110,7 @@ def sun_lamp(name: str = "Sun", elevation: float = 22.0,
 
 
 def daylight(elevation: float = 22.0, rotation: float = 214.0,
-             sky_strength: float = 1.0, sun_energy: float = 2.6,
+             sky_strength: float = 0.52, sun_energy: float = 4.6,
              softness: float = 0.9, warmth: float = 0.0
              ) -> tuple[bpy.types.World, bpy.types.Object]:
     """Sky plus a matched key light, with the sky's own sun disc turned off.
@@ -118,6 +118,11 @@ def daylight(elevation: float = 22.0, rotation: float = 214.0,
     This is the pairing every exterior render wants: the sky supplies the blue
     fill and the horizon gradient, and one sun lamp supplies the key, so
     shadow softness can be tuned without touching the ambient level.
+
+    The defaults deliberately run the sky low and the sun high.  A sky bright
+    enough to fill the shadows also flattens the modelling, and on a facade
+    that is nothing but cornices, brackets and mouldings, the shadows those
+    throw are the whole point.
     """
     world = sky_world(sun_elevation=elevation, sun_rotation=rotation,
                       strength=sky_strength, sun_disc=False)

@@ -579,23 +579,23 @@ def turf(name: str = "Lawn", color: RGB | None = None,
     nt.links.new(coords.outputs["Generated"], stripe.inputs["Vector"])
 
     m1 = _node(nt, "ShaderNodeMixRGB", -700, 0)
-    _set(m1, "Color1", _rgba([c * 0.62 for c in color]))
-    _set(m1, "Color2", _rgba([min(1, c * 1.7 + 0.02) for c in color]))
+    _set(m1, "Color1", _rgba([c * 0.55 for c in color]))
+    _set(m1, "Color2", _rgba([min(1, c * 1.22 + 0.008) for c in color]))
     nt.links.new(broad.outputs["Fac"], m1.inputs["Fac"])
 
     m2 = _node(nt, "ShaderNodeMixRGB", -460, 0)
     _set(m2, "Fac", variation)
-    _set(m2, "Color2", _rgba([c * 1.15 for c in color]))
+    _set(m2, "Color2", _rgba([c * 0.92 for c in color]))
     nt.links.new(m1.outputs["Color"], m2.inputs["Color1"])
     nt.links.new(fine.outputs["Fac"], m2.inputs["Fac"])
 
     m3 = _node(nt, "ShaderNodeMixRGB", -240, 0)
     _set(m3, "Fac", 0.022)                     # mower stripes, barely there
-    _set(m3, "Color2", _rgba([min(1, c * 1.35) for c in color]))
+    _set(m3, "Color2", _rgba([min(1, c * 1.18) for c in color]))
     nt.links.new(m2.outputs["Color"], m3.inputs["Color1"])
     nt.links.new(stripe.outputs["Fac"], m3.inputs["Fac"])
 
-    bsdf = _principled(nt, roughness=0.88, sheen_weight=0.25)
+    bsdf = _principled(nt, roughness=0.92, sheen_weight=0.18)
     nt.links.new(m3.outputs["Color"], bsdf.inputs["Base Color"])
     b = _bump(nt, fine.outputs["Fac"], 0.5, 0.02)
     nt.links.new(b.outputs["Normal"], bsdf.inputs["Normal"])

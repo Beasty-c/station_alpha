@@ -24,7 +24,7 @@ from mathutils import Matrix
 
 from ..core import config, meshkit as mk, ornament as orn
 from ..core.materials import Library
-from . import entrance, windows as W
+from . import bay as bay_mod, entrance, windows as W
 
 WALL_T = 0.40
 CORNER_BOARD = 0.26
@@ -297,6 +297,25 @@ def build_block(b: config.Block, schedule: dict[str, list[Bay]],
                 z = deck + config.WIN_SILL
                 if bay.kind == "blank":
                     continue
+                if bay.kind == "bay":
+                    if floor != min(bay.floors):
+                        continue
+                    opts = bay.spec.get("bay", {})
+                    poly = bay_mod.opening_polygon(
+                        opts.get("width", 4.2),
+                        len(bay.floors) * config.FLOOR_2 - 1.2)
+                    cutter = mk.prism_y(f"{b.name}.baycut{bi}", poly,
+                                        -WALL_T - 0.25, 0.25, col)
+                    px, py, _ = elev.point(bay.offset, 0.0)
+                    mk.transform(cutter, Matrix.Translation((px, py, deck))
+                                 @ Matrix.Rotation(elev.yaw, 4, 'Z'))
+                    mk.boolean(wall, cutter)
+                    obj = bay_mod.build(f"{b.name}.bay{bi}", lib, col,
+                                        z0=deck, storeys=len(bay.floors),
+                                        wall_t=WALL_T, **opts)
+                    W.place(obj, px, py, 0.0, elev.yaw)
+                    joinery.append(obj)
+                    continue
                 if bay.kind == "door":
                     if floor != 1:
                         continue
@@ -357,8 +376,13 @@ def main_schedule() -> dict[str, list[Bay]]:
         ],
         "west": [
             Bay(-3.90, floors=(1, 2, 3)),
-            Bay(0.00, floors=(2, 3)),
-            Bay(3.80, floors=(1, 2, 3)),
+            # A two-storey canted bay lights the drawing room and breaks up
+            # what would otherwise be the house's one blank elevation.
+            Bay(0.20, "bay", floors=(1, 2),
+                spec={"bay": dict(width=4.4, projection=1.65,
+                                  roof="balcony")}),
+            Bay(0.00, floors=(3,)),
+            Bay(4.20, floors=(1, 2, 3)),
         ],
         "north": [
             Bay(-6.20, floors=(1, 2, 3)),
@@ -387,7 +411,10 @@ def wing_schedule() -> dict[str, list[Bay]]:
 
 def pavilion_schedule() -> dict[str, list[Bay]]:
     return {
-        "east": [Bay(-2.10, floors=(1, 2, 3)), Bay(2.10, floors=(1, 2, 3))],
+        "east": [Bay(-2.30, floors=(2, 3)), Bay(2.30, floors=(2, 3)),
+                 Bay(0.00, "bay", floors=(1,),
+                     spec={"bay": dict(width=4.0, projection=1.45,
+                                       roof="hip")})],
         "south": [Bay(0.00, floors=(1, 2, 3))],
         "north": [Bay(0.00, floors=(1, 2, 3))],
     }

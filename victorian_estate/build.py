@@ -3,12 +3,63 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 
 import bpy
 
 from .core import config, meshkit as mk, materials as mat
-from .grounds import hardscape, layout, outbuildings, terrain
-from .mansion import roof, shell, tower, veranda
+from .core.render import Shot
+from .grounds import furniture, hardscape, layout, outbuildings, terrain
+from .mansion import interior, roof, shell, tower, veranda
+
+
+@dataclass(frozen=True)
+class View:
+    """A camera together with the light it is meant to be seen in.
+
+    Sun angle is part of the shot, not a global: a facade is modelled by the
+    shadows its own mouldings throw, so each elevation wants the sun raking
+    across it rather than sitting behind the camera.  One global sun would
+    leave half these views flat.
+    """
+    shot: Shot
+    elevation: float = 22.0
+    rotation: float = 196.0
+    exposure: float = -0.55
+    sky: float = 0.44
+    energy: float = 5.6
+    softness: float = 0.55
+
+    @property
+    def key(self) -> str:
+        return self.shot.name.split(".")[-1].lower()
+
+
+#: The set of views the project renders from, saved into the .blend.
+VIEWS = (
+    # Looking north up the drive at the entrance front: sun from the east so
+    # the front is lit and the tower throws its shadow west.
+    View(Shot("Cam.Approach", (3.0, 58.0, 7.0), (0.0, 6.0, 12.5), lens=46),
+         elevation=21, rotation=58, exposure=-0.55),
+    # The three-quarter view: the sun rakes the west front almost edge on,
+    # which is what pulls the bay, the brackets and the cornice out of it.
+    View(Shot("Cam.SouthWest", (-42.0, 48.0, 12.0), (-3.0, 2.0, 11.0), lens=50),
+         elevation=18, rotation=196, exposure=-0.60),
+    View(Shot("Cam.SouthEast", (44.0, 52.0, 12.0), (0.0, 0.0, 11.0), lens=50),
+         elevation=20, rotation=18, exposure=-0.58),
+    View(Shot("Cam.Estate", (96.0, 118.0, 86.0), (-4.0, 6.0, 6.0), lens=52),
+         elevation=33, rotation=126, exposure=-0.45, sky=0.50, energy=4.8),
+    View(Shot("Cam.Garden", (-62.0, -18.0, 16.0), (-24.0, 6.0, 10.0), lens=48),
+         elevation=24, rotation=232, exposure=-0.55),
+    View(Shot("Cam.Stables", (-48.0, -54.0, 14.0), (-24.0, -26.0, 6.0), lens=50),
+         elevation=23, rotation=286, exposure=-0.55),
+    # Under the veranda roof, so the key has to come in almost horizontally.
+    View(Shot("Cam.Veranda", (7.2, 19.5, 2.3), (-4.0, 8.0, 3.2), lens=34),
+         elevation=13, rotation=64, exposure=-0.45, sky=0.55, energy=6.4,
+         softness=0.4),
+)
+
+SHOTS = tuple(v.shot for v in VIEWS)
 
 
 def reset_scene() -> None:
@@ -35,6 +86,8 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
               f"{sum(len(o.data.vertices) for o in made):>9d} verts")
 
     stage("shell", lambda: shell.build(lib, house))
+    if detail.interior:
+        stage("interior", lambda: interior.build(lib, house))
 
     porch = mk.collection("Veranda", root)
     plan = veranda.front_plan()
@@ -80,6 +133,8 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
     stage("gazebo", lambda: outbuildings.gazebo(lib, works))
     stage("lodge", lambda: outbuildings.lodge(lib, works))
     stage("pond", lambda: outbuildings.pond(lib, works))
+
+    stage("furniture", lambda: furniture.build(lib, site))
 
     green = mk.collection("Planting", root)
     stage("planting", lambda: layout.build(lib, green, detail))
