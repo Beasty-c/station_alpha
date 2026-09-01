@@ -53,6 +53,15 @@ def drive(lib: Library, col) -> list[bpy.types.Object]:
                            (-30.0, -8.0), config.CARRIAGE_HOUSE_XY, 28)
     made.append(T.ribbon("drive.service", service, 4.2, lib, col, layer=2))
 
+    # A spur east to the carriage porch, and on round to the kitchen yard.
+    carriage = _bezier_path((r * 0.80, cy - r * 0.58), (20.0, 22.0),
+                            (24.0, 12.0), (18.6, 2.6), 22)
+    made.append(T.ribbon("drive.portecochere", carriage, 4.4, lib, col,
+                         layer=4))
+    yard = _bezier_path((18.6, 2.6), (23.0, -6.0), (26.0, -14.0),
+                        (26.0, -22.0), 18)
+    made.append(T.ribbon("drive.yard", yard, 3.6, lib, col, layer=4))
+
     # A gravel forecourt in front of the veranda steps.
     made.append(T.ribbon("drive.forecourt",
                          [(-8.0, 13.4), (11.6, 13.4)], 4.6, lib, col, layer=3))
@@ -128,7 +137,7 @@ def balustrade(name: str, path, z: float, lib: Library, col,
                        col=col)
         mk.recalc_normals(cap)
         parts.append(cap)
-        urn = orn.finial(f"{name}.urn{i}", 0.92, 0.24, 16, "urn", col)
+        urn = orn.finial(f"{name}.urn{i}", 0.70, 0.165, 16, "urn", col)
         mk.transform(urn, Matrix.Translation((x, y, z + height + 0.25)))
         parts.append(urn)
 

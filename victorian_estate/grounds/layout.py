@@ -34,7 +34,13 @@ KEEP_CLEAR = [
     (config.CONSERVATORY_XY[0], config.CONSERVATORY_XY[1], 11.0),
     (config.GAZEBO_XY[0], config.GAZEBO_XY[1], 9.0),
     (config.POND_XY[0], config.POND_XY[1], 15.0),
+    (26.0, -34.0, 22.0),                   # the walled kitchen garden
+    (19.0, 2.6, 12.0),                     # the carriage porch and its spur
+    (-12.5, config.GATE_Y - 7.0, 13.0),    # the gate lodge
 ]
+
+#: The orchard: a regular grid, which is how an orchard is actually planted.
+ORCHARD = (-56.0, -26.0, 8, 5, 7.5)        # cx, cy, cols, rows, spacing
 
 #: The view corridor south from the front door is kept open.
 VISTA = (-13.0, 12.0, 13.0, 100.0)         # x0, y0, x1, y1
@@ -81,6 +87,19 @@ def avenue(spacing: float = 12.5) -> list[tuple[float, float]]:
         pts.append((cx - offset, y))
         pts.append((cx + offset, y))
         y += spacing
+    return pts
+
+
+def orchard_positions() -> list[tuple[float, float]]:
+    """A quincunx of fruit trees - the rows offset so the grid reads as
+    planted rather than scattered."""
+    cx, cy, cols, rows, pitch = ORCHARD
+    pts = []
+    for r in range(rows):
+        for c in range(cols):
+            x = cx + (c - (cols - 1) / 2) * pitch + (pitch / 2 if r % 2 else 0)
+            y = cy + (r - (rows - 1) / 2) * pitch
+            pts.append((x, y))
     return pts
 
 
@@ -179,6 +198,42 @@ def foundation_planting(lib: Library, col) -> list[bpy.types.Object]:
     return made
 
 
+def creepers(lib: Library, col) -> list[bpy.types.Object]:
+    """Ivy on the service elevations and the garden walls.
+
+    Kept off the show fronts: a house like this was maintained, and the
+    climbers were let go only where nobody important was looking.
+    """
+    made = []
+    m, w = config.MAIN, config.WING
+    patches = [
+        # (origin, outward normal, width, height, stems, seed)
+        ((w.x0 - 0.06, w.y0 + 0.6, config.Z_BASE), (-1, 0, 0), 7.4, 8.6, 15, 1),
+        ((w.x1 + 0.06, w.y0 + 1.2, config.Z_BASE), (1, 0, 0), 6.2, 7.8, 13, 2),
+        ((w.x0 + 1.0, w.y0 - 0.06, config.Z_BASE), (0, -1, 0), 8.6, 8.0, 16, 3),
+        ((m.x0 - 0.06, m.y0 + 0.5, config.Z_BASE), (-1, 0, 0), 5.0, 7.0, 11, 4),
+        ((config.PAVILION.x0 - 0.06, config.PAVILION.y0 + 0.4, config.Z_BASE),
+         (-1, 0, 0), 4.2, 6.4, 9, 5),
+    ]
+    for i, (origin, normal, wd, ht, stems, seed) in enumerate(patches):
+        made.append(ivy_patch(f"ivy.house{i}", origin, normal, wd, ht, lib,
+                              col, stems, seed))
+
+    # And along the outer face of the kitchen garden's north wall.
+    for i in range(3):
+        x = 13.0 + i * 8.6
+        made.append(ivy_patch(f"ivy.kitchen{i}",
+                              (x, -22.76, T.height(x, -23.0) - 0.3),
+                              (0, 1, 0), 7.6, 2.4, lib, col, 9, 20 + i))
+    return made
+
+
+def ivy_patch(name, origin, normal, width, height, lib, col, stems, seed):
+    return P.ivy(name, origin, normal, width, height, lib, col, stems=stems,
+                 density=22.0, seed=seed,
+                 coverage=0.72 + (seed % 5) * 0.05)
+
+
 def build(lib: Library, col, detail: config.Detail) -> list[bpy.types.Object]:
     """All the planting on the estate."""
     made: list[bpy.types.Object] = []
@@ -202,6 +257,10 @@ def build(lib: Library, col, detail: config.Detail) -> list[bpy.types.Object]:
          for a in [0.4, 1.3, 2.2, 3.4, 4.6, 5.5]],
         lib, col, species=("willow",), variants=2, seed=404))
 
+    made.append(P.plantation("park.orchard", orchard_positions(), lib, col,
+                             species=("apple", "pear"), variants=4, seed=505))
+
     made += parterre(lib, col)
     made += foundation_planting(lib, col)
+    made += creepers(lib, col)
     return made

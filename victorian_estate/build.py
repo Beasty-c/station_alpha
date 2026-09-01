@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 
@@ -92,6 +93,9 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
     porch = mk.collection("Veranda", root)
     plan = veranda.front_plan()
     stage("veranda", lambda: veranda.build(plan, lib, porch))
+    stage("porte-cochere", lambda: veranda.porte_cochere(
+        "portecochere", lib, porch, config.PAVILION.x1, config.PAVILION.cy,
+        -math.pi / 2))
     stage("steps", lambda: [veranda.steps(
         "veranda.steps", (1.10, config.MAIN.y1 + config.VERANDA_DEPTH),
         (0.0, 1.0), 3.30, plan.deck_z, lib, porch)])

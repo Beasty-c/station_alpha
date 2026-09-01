@@ -92,12 +92,14 @@ class Bay:
     spec: dict = field(default_factory=dict)
 
 
-#: Floor deck heights and the window height used on each.
+#: Floor deck heights, the window height used on each, and the sill height.
 FLOORS = {
     1: (config.Z_F1, config.WIN_H_1),
     2: (config.Z_F2, config.WIN_H_2),
     3: (config.Z_F3, config.WIN_H_3),
 }
+
+SILL = {1: config.WIN_SILL, 2: config.WIN_SILL, 3: config.WIN_SILL_3}
 
 
 def window_spec(floor: int, **overrides) -> W.WindowSpec:
@@ -110,8 +112,10 @@ def window_spec(floor: int, **overrides) -> W.WindowSpec:
     elif floor == 2:
         base.update(hood="cornice", hood_brackets=False, corner_blocks=True)
     else:
-        base.update(head="segmental", upper_lights=(1, 1), hood="label",
-                    width=1.02)
+        # No hood on the attic storey: the head is already close under the
+        # cornice, and a label mould there would run into the frieze.
+        base.update(head="segmental", upper_lights=(1, 1), hood="none",
+                    width=1.02, apron=False)
     base.update(overrides)
     return W.WindowSpec(**base)
 
@@ -364,10 +368,19 @@ def main_schedule() -> dict[str, list[Bay]]:
     """
     return {
         "south": [
-            Bay(-2.30, floors=(1, 2, 3)),
+            # The west end of the front runs behind the tower as far as
+            # x = -6.28, so the last full bay sits just clear of it.
+            Bay(-5.30, floors=(1, 2, 3), spec={
+                1: dict(hood="none", height=2.40, corner_blocks=False)}),
+            Bay(-2.30, floors=(1, 2, 3), spec={
+                1: dict(hood="none", height=2.40, corner_blocks=False)}),
             Bay(1.10, "door", floors=(1, 2, 3)),
-            Bay(4.40, floors=(1, 2, 3)),
-            Bay(7.30, floors=(1, 2, 3)),
+            # The ground-floor openings on this front stand under the
+            # veranda roof, so they are shorter and carry no hood.
+            Bay(4.40, floors=(1, 2, 3), spec={
+                1: dict(hood="none", height=2.40, corner_blocks=False)}),
+            Bay(7.30, floors=(1, 2, 3), spec={
+                1: dict(hood="none", height=2.40, corner_blocks=False)}),
         ],
         "east": [
             Bay(-4.30, floors=(2, 3)),
@@ -381,7 +394,7 @@ def main_schedule() -> dict[str, list[Bay]]:
             Bay(0.20, "bay", floors=(1, 2),
                 spec={"bay": dict(width=4.4, projection=1.65,
                                   roof="balcony")}),
-            Bay(0.00, floors=(3,)),
+            Bay(0.20, floors=(3,)),
             Bay(4.20, floors=(1, 2, 3)),
         ],
         "north": [

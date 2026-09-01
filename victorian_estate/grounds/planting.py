@@ -46,7 +46,16 @@ SPECIES = {
                          levels=4, blob=1.72, tips=1.30, taper=0.60),
     "birch":        dict(h=12.0, r=0.22, splits=2, spread=0.34, droop=-0.10,
                          levels=5, blob=0.80, tips=0.70, taper=0.74),
+    # An orchard tree is pruned to an open goblet on a short leg, so it wants
+    # a much shorter trunk and a wider, lower head than a park tree.
+    "apple":        dict(h=4.6, r=0.16, splits=3, spread=0.80, droop=0.08,
+                         levels=4, blob=0.46, tips=1.00, taper=0.66),
+    "pear":         dict(h=5.4, r=0.15, splits=3, spread=0.58, droop=-0.06,
+                         levels=4, blob=0.42, tips=0.95, taper=0.70),
 }
+
+#: Species whose canopy starts low on a short leg.
+SHORT_LEG = {"apple", "pear"}
 
 FOLIAGE_MATERIAL = {
     "beech": "leaf_copper",
@@ -165,7 +174,8 @@ def tree(name: str, species: str, lib: Library, col, seed: int = 0,
                 foliage(tip + child * length * rng.uniform(0.3, 0.7),
                         spec["blob"] * 0.66 * scale)
 
-    trunk_len = height * (0.34 if species != "cedar" else 0.26)
+    trunk_len = height * (0.26 if species == "cedar"
+                          else 0.17 if species in SHORT_LEG else 0.34)
     grow(Vector((0, 0, 0)), Vector((rng.uniform(-0.05, 0.05),
                                     rng.uniform(-0.05, 0.05), 1.0)),
          trunk_len, spec["r"] * scale, 1)
@@ -367,3 +377,101 @@ def bed(name: str, polygon, lib: Library, col, seed: int = 0,
     if clumps:
         made.append(mk.join(clumps, f"{name}.planting", col))
     return made
+
+
+# ---------------------------------------------------------------------------
+# Climbers
+# ---------------------------------------------------------------------------
+
+def _leaf_shape(size: float, lobes: int = 5) -> tuple[list, list]:
+    """A single ivy leaf: a lobed outline in the XY plane, tip at +Y."""
+    pts = [(0.0, -size * 0.28)]
+    for i in range(lobes):
+        a = math.pi * (i + 0.5) / lobes
+        r = size * (0.62 + 0.38 * math.sin(a) ** 0.6)
+        pts.append((-r * math.cos(a) * 0.86, size * 0.72 - r * math.cos(a) * 0.0
+                    + r * math.sin(a) * 0.0))
+    # Simpler and more reliable: a five-point star-ish silhouette.
+    pts = [(0.0, size), (size * 0.38, size * 0.42), (size * 0.62, size * 0.52),
+           (size * 0.44, size * 0.02), (size * 0.26, -size * 0.30),
+           (0.0, -size * 0.22), (-size * 0.26, -size * 0.30),
+           (-size * 0.44, size * 0.02), (-size * 0.62, size * 0.52),
+           (-size * 0.38, size * 0.42)]
+    faces = [(0, i, i + 1) for i in range(1, len(pts) - 1)]
+    return [(x, 0.0, y) for x, y in pts], faces
+
+
+def ivy(name: str, origin, normal, width: float, height: float,
+        lib: Library, col, up=(0.0, 0.0, 1.0), stems: int = 14,
+        density: float = 26.0, leaf: float = 0.085, seed: int = 0,
+        coverage: float = 0.75, material=None) -> bpy.types.Object:
+    """A patch of climbing ivy on a wall plane.
+
+    ``origin`` is a point at the foot of the patch and ``normal`` is the
+    wall's outward direction; the patch runs ``width`` along the wall and
+    ``height`` up it.  Stems random-walk upward with a bias to stay on the
+    wall, and leaves are single lobed quads scattered along them, tilted out
+    of the plane so the mass catches light instead of reading as a flat decal.
+    """
+    rng = random.Random(seed * 131 + 7)
+    o = Vector(origin)
+    u = Vector(up).normalized()
+    n = Vector(normal).normalized()
+    r = u.cross(n).normalized()
+
+    stem_v: list[tuple] = []
+    stem_f: list[tuple] = []
+    leaf_v: list[tuple] = []
+    leaf_f: list[tuple] = []
+    lv, lf = _leaf_shape(leaf)
+
+    def place_leaf(at: Vector, tilt: float, spin: float, scale: float) -> None:
+        base = len(leaf_v)
+        m = (Matrix.Translation(at)
+             @ Matrix.Rotation(spin, 4, n)
+             @ Matrix.Rotation(tilt, 4, r)
+             @ Matrix.Scale(scale, 4))
+        # Map the leaf's local XZ onto the wall plane.
+        basis = Matrix((r, n, u)).transposed().to_4x4()
+        for vx, vy, vz in lv:
+            p = m @ (basis @ Vector((vx, vy, vz)))
+            leaf_v.append((p.x, p.y, p.z))
+        for f in lf:
+            leaf_f.append(tuple(base + i for i in f))
+
+    for s in range(stems):
+        x = width * (s + rng.uniform(0.1, 0.9)) / stems
+        z = 0.0
+        drift = rng.uniform(-0.25, 0.25)
+        top = height * rng.uniform(0.55, 1.0) * coverage + height * 0.1
+        thick = rng.uniform(0.016, 0.030)
+        prev = o + r * x + u * z + n * 0.02
+        while z < top:
+            step = rng.uniform(0.18, 0.34)
+            z += step
+            drift += rng.uniform(-0.16, 0.16)
+            drift = max(-0.7, min(0.7, drift))
+            x = max(0.0, min(width, x + drift * step))
+            cur = o + r * x + u * z + n * rng.uniform(0.015, 0.05)
+            # Stem segment as a flat ribbon; it is never seen edge on.
+            side = r * (thick * 0.5)
+            base = len(stem_v)
+            for p in (prev - side, prev + side, cur + side, cur - side):
+                stem_v.append((p.x, p.y, p.z))
+            stem_f.append((base, base + 1, base + 2, base + 3))
+            # Leaves along the segment.
+            for _ in range(int(density * step)):
+                t = rng.random()
+                at = prev.lerp(cur, t) + n * rng.uniform(0.02, 0.09) \
+                    + r * rng.uniform(-0.16, 0.16) + u * rng.uniform(-0.06, 0.06)
+                place_leaf(at, rng.uniform(-0.9, 0.9), rng.uniform(0, math.tau),
+                           rng.uniform(0.65, 1.35))
+            prev = cur
+
+    stem = mk.obj_from(f"{name}.stems", stem_v, stem_f, col=col)
+    mk.set_material(stem, lib.bark)
+    leaves = mk.obj_from(f"{name}.leaves", leaf_v, leaf_f, col=col)
+    mk.set_material(leaves, material or lib.leaf)
+    obj = mk.join([stem, leaves], name, col)
+    obj.data.materials  # keep both slots
+    return obj

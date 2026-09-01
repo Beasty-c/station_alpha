@@ -44,6 +44,10 @@ def build(name: str, lib: Library, col, width: float = 4.2,
     """
     parts: list[bpy.types.Object] = []
     plan = canted_plan(width, projection)
+    # sweep() derives its own frame from the path tangent, which for this plan
+    # points the profile inward.  Traversed the other way it points out, which
+    # is where a band course and a cornice belong.
+    out_plan = list(reversed(plan))
     heights = []
     z = z0
     for s in range(storeys):
@@ -74,7 +78,11 @@ def build(name: str, lib: Library, col, width: float = 4.2,
             if run < 0.5:
                 continue
             d.normalize()
-            yaw = math.atan2(d.y, d.x) - math.pi / 2
+            # The plan runs left to right as seen from outside, so a face's
+            # outward normal is its edge direction turned a quarter turn
+            # anticlockwise - and the yaw that carries a window's own +Y onto
+            # that normal is just the edge's bearing.
+            yaw = math.atan2(d.y, d.x)
             mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
             spec = W.WindowSpec(
                 width=min(1.30, run - 0.55), height=h, wall_t=wall_t,
@@ -96,7 +104,7 @@ def build(name: str, lib: Library, col, width: float = 4.2,
         # A moulded band at each floor line.
         if s:
             band = mk.sweep(f"{name}.band{s}", orn.cyma_reversa(0.14, 0.24),
-                            [(x, y, za - 0.40) for x, y in plan],
+                            [(x, y, za - 0.40) for x, y in out_plan],
                             closed_path=False, col=col)
             mk.recalc_normals(band)
             mk.set_material(band, lib.trim)
@@ -119,7 +127,8 @@ def build(name: str, lib: Library, col, width: float = 4.2,
     mk.set_material(frieze, lib.trim)
     parts.append(frieze)
     cor = mk.sweep(f"{name}.cornice", orn.cornice_profile(0.46, 0.40),
-                   [(x, y, top) for x, y in plan], closed_path=False, col=col)
+                   [(x, y, top) for x, y in out_plan], closed_path=False,
+                   col=col)
     mk.recalc_normals(cor)
     mk.set_material(cor, lib.trim)
     parts.append(cor)
@@ -130,7 +139,9 @@ def build(name: str, lib: Library, col, width: float = 4.2,
         if d.length < 0.5:
             continue
         n = max(1, int(d.length / 0.95))
-        yaw = math.atan2(d.y, d.x) - math.pi / 2
+        # A bracket's silhouette projects along its local +X, so it needs the
+        # outward bearing itself, a quarter turn past the edge direction.
+        facing = math.atan2(d.y, d.x) + math.pi / 2
         for k in range(n + 1):
             t = k / n
             px = a[0] + d.x * t
@@ -138,7 +149,7 @@ def build(name: str, lib: Library, col, width: float = 4.2,
             br = orn.bracket(f"{name}.br{fi}{k}", 0.36, 0.50, 0.055, "scroll",
                              pierce=False, col=col)
             mk.transform(br, Matrix.Translation((px, py, top - 0.02))
-                         @ Matrix.Rotation(yaw + math.pi / 2, 4, 'Z'))
+                         @ Matrix.Rotation(facing, 4, 'Z'))
             brs.append(br)
     if brs:
         b = mk.join(brs, f"{name}.brackets", col)

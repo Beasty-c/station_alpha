@@ -109,7 +109,7 @@ TOWER_FINIAL_H = 2.2
 
 VERANDA_DEPTH = 3.40
 VERANDA_DECK_Z = Z_F1 - 0.22
-VERANDA_CEIL_Z = Z_F1 + 3.25
+VERANDA_CEIL_Z = Z_F1 + 3.80
 VERANDA_POST_BAY = 2.55   # nominal spacing between turned posts
 VERANDA_RAIL_H = 0.95
 BALUSTER_SPACING = 0.155
@@ -138,8 +138,12 @@ SLATE_EXPOSURE = 0.16         # how much of each course shows
 WIN_W = 1.14                  # typical 2-over-2 sash opening width
 WIN_H_1 = 2.85                # ground floor - tall
 WIN_H_2 = 2.35
-WIN_H_3 = 1.85
+#: The attic storey is 3.20 m and the frieze and cornice take 0.62 of that,
+#: so the third-floor opening has 2.58 m to fit its sill, height and arch
+#: rise into.  Anything taller drives the head up behind the cornice.
+WIN_H_3 = 1.42
 WIN_SILL = 0.95               # sill height above the floor deck
+WIN_SILL_3 = 0.78             # lower, to keep the attic head clear
 MUNTIN = 0.035
 SASH_RAIL = 0.075
 GLASS_INSET = 0.055

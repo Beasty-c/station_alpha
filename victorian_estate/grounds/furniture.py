@@ -24,18 +24,18 @@ from . import planting as P, terrain as T
 # ---------------------------------------------------------------------------
 
 def lamp_standard(name: str, x: float, y: float, lib: Library, col,
-                  height: float = 3.5, lit: bool = False, segments: int = 14
+                  height: float = 3.2, lit: bool = False, segments: int = 14
                   ) -> bpy.types.Object:
     """A cast-iron lamp column with a fluted shaft and a glazed lantern."""
     parts = []
     z = T.height(x, y)
     h = height
     column = mk.lathe(f"{name}.column", [
-        (0.0, 0.0), (0.30, 0.0), (0.30, 0.10), (0.24, 0.16), (0.22, 0.26),
-        (0.16, 0.34), (0.13, 0.46), (0.115, h * 0.30), (0.095, h * 0.62),
-        (0.088, h * 0.80), (0.115, h * 0.83), (0.135, h * 0.855),
-        (0.098, h * 0.875), (0.098, h * 0.90), (0.15, h * 0.925),
-        (0.15, h * 0.95), (0.0, h * 0.95),
+        (0.0, 0.0), (0.205, 0.0), (0.205, 0.07), (0.155, 0.13), (0.140, 0.22),
+        (0.104, 0.30), (0.082, 0.42), (0.072, h * 0.30), (0.058, h * 0.62),
+        (0.052, h * 0.80), (0.072, h * 0.83), (0.086, h * 0.855),
+        (0.060, h * 0.875), (0.060, h * 0.90), (0.098, h * 0.925),
+        (0.098, h * 0.95), (0.0, h * 0.95),
     ], segments, center=(x, y, z), col=col)
     mk.shade_smooth(column, math.radians(34))
     mk.set_material(column, lib.iron)
@@ -43,16 +43,16 @@ def lamp_standard(name: str, x: float, y: float, lib: Library, col,
 
     # The lantern: a tapered glazed box with a vented cap.
     base_z = z + h * 0.95
-    lw = 0.34
+    lw = 0.21
     frame = []
     for k in range(4):
         a = math.pi / 2 * k + math.pi / 4
-        post = mk.box(f"{name}.lp{k}", (0, 0, 0), (0.028, 0.028, 0.62), col)
+        post = mk.box(f"{name}.lp{k}", (0, 0, 0), (0.022, 0.022, 0.46), col)
         mk.transform(post, Matrix.Translation(
             (x + lw * 0.72 * math.cos(a), y + lw * 0.72 * math.sin(a),
-             base_z + 0.31)))
+             base_z + 0.23)))
         frame.append(post)
-    for zz in (base_z + 0.02, base_z + 0.60):
+    for zz in (base_z + 0.02, base_z + 0.44):
         ring = mk.lathe(f"{name}.ring{zz:.2f}",
                         [(lw * 0.62, 0.0), (lw * 0.78, 0.0),
                          (lw * 0.78, 0.06), (lw * 0.62, 0.06)], 4,
@@ -63,20 +63,20 @@ def lamp_standard(name: str, x: float, y: float, lib: Library, col,
     parts.append(f)
 
     glass = mk.lathe(f"{name}.glass",
-                     [(0.0, 0.0), (lw * 0.66, 0.0), (lw * 0.66, 0.58),
-                      (0.0, 0.58)], 4, start=math.pi / 4,
+                     [(0.0, 0.0), (lw * 0.66, 0.0), (lw * 0.66, 0.42),
+                      (0.0, 0.42)], 4, start=math.pi / 4,
                      center=(x, y, base_z + 0.02), col=col)
     mk.set_material(glass, lib.lamp if lit else lib.glass)
     parts.append(glass)
 
     cap = mk.lathe(f"{name}.cap", [
-        (lw * 0.92, 0.0), (lw * 0.78, 0.16), (lw * 0.42, 0.30),
-        (lw * 0.30, 0.36), (lw * 0.30, 0.44), (0.0, 0.52)], 8,
-        center=(x, y, base_z + 0.60), col=col)
+        (lw * 0.96, 0.0), (lw * 0.80, 0.11), (lw * 0.44, 0.21),
+        (lw * 0.30, 0.26), (lw * 0.30, 0.32), (0.0, 0.38)], 8,
+        center=(x, y, base_z + 0.44), col=col)
     mk.set_material(cap, lib.iron)
     parts.append(cap)
-    fin = orn.finial(f"{name}.finial", 0.34, 0.055, 10, "acorn", col)
-    mk.transform(fin, Matrix.Translation((x, y, base_z + 1.10)))
+    fin = orn.finial(f"{name}.finial", 0.24, 0.040, 10, "acorn", col)
+    mk.transform(fin, Matrix.Translation((x, y, base_z + 0.80)))
     mk.set_material(fin, lib.iron)
     parts.append(fin)
     return mk.join(parts, name, col)
@@ -131,7 +131,7 @@ def bench(name: str, x: float, y: float, yaw: float, lib: Library, col,
 
 
 def urn_on_plinth(name: str, x: float, y: float, lib: Library, col,
-                  height: float = 1.55, segments: int = 18
+                  height: float = 1.42, segments: int = 18
                   ) -> bpy.types.Object:
     """A stone urn on a moulded pedestal, for terminating a walk."""
     parts = []
@@ -279,7 +279,7 @@ def build(lib: Library, col, lit: bool = False) -> list[bpy.types.Object]:
         a = math.tau * i / 6 + 0.35
         lamp_spots.append((math.cos(a) * (r + 4.2),
                            cy + math.sin(a) * (r + 4.2)))
-    lamp_spots += [(-2.6, 14.6), (4.8, 14.6)]
+    lamp_spots += [(-4.4, 14.9), (6.6, 14.9)]
     lamps = [lamp_standard(f"lamp{i}", x, y, lib, col, lit=lit)
              for i, (x, y) in enumerate(lamp_spots)]
     made.append(mk.join(lamps, "lamps", col))

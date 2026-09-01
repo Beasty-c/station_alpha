@@ -388,3 +388,164 @@ def front_plan() -> Plan:
         wall=[(x_east, y_wall), (x_west, y_wall)],
         step_bays=(2,),
     )
+
+
+# ---------------------------------------------------------------------------
+# Porte-cochere
+# ---------------------------------------------------------------------------
+
+def porte_cochere(name: str, lib: Library, col, cx: float, cy: float,
+                  yaw: float = 0.0, width: float = 6.4, depth: float = 5.6,
+                  deck_z: float = config.Z_F1 - 0.20,
+                  ceil_z: float = config.Z_F1 + 3.9, segments: int = 20,
+                  slate: bool = True) -> list[bpy.types.Object]:
+    """A carriage porch: paired posts on stone piers, a bracketed entablature
+    and a balustraded flat over it, with the drive running through.
+
+    Built about a local origin at the wall face, projecting along +Y, then
+    turned by ``yaw`` onto whichever elevation it serves.
+    """
+    parts: list[bpy.types.Object] = []
+    hw = width / 2.0
+    # Four corner post groups; the two outer ones stand free in the drive.
+    stations = [(-hw, 0.35), (hw, 0.35), (-hw, depth), (hw, depth)]
+
+    pier_h = 1.05
+    shaft = ceil_z - deck_z - pier_h - 0.20
+    proto = orn.turned_post(f"{name}.postproto", shaft, 0.30, segments,
+                            "veranda", col)
+    mk.set_material(proto, lib.trim)
+    for i, (px, py) in enumerate(stations):
+        pier = mk.box(f"{name}.pier{i}", (px, py, deck_z + pier_h / 2),
+                      (0.86, 0.86, pier_h), col)
+        mk.set_material(pier, lib.stone)
+        parts.append(pier)
+        cap = mk.sweep(f"{name}.piercap{i}", orn.cyma_reversa(0.13, 0.14),
+                       mk.rect_path(px - 0.43, py - 0.43, px + 0.43, py + 0.43,
+                                    deck_z + pier_h), closed_path=True, col=col)
+        mk.recalc_normals(cap)
+        mk.set_material(cap, lib.stone)
+        parts.append(cap)
+        # A pair of posts on each pier, as the span is wide.
+        for k, off in enumerate((-0.19, 0.19)):
+            parts.append(mk.instance(
+                proto, f"{name}.post{i}{k}",
+                (px + off, py, deck_z + pier_h), col=col))
+    bpy.data.objects.remove(proto)
+
+    # Entablature on all four sides, with a segmental arch spanning the drive.
+    edges = [((-hw, 0.35), (-hw, depth)), ((hw, 0.35), (hw, depth)),
+             ((-hw, depth), (hw, depth))]
+    for ei, (a, b) in enumerate(edges):
+        d = Vector((b[0] - a[0], b[1] - a[1], 0.0))
+        length = d.length
+        d.normalize()
+        yy = math.atan2(d.y, d.x)
+        mid = Vector(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.0))
+        beam = mk.box(f"{name}.beam{ei}", (0, 0, 0),
+                      (length + 0.6, 0.34, 0.46), col)
+        mk.transform(beam, Matrix.Translation(mid + Vector((0, 0, ceil_z - 0.23)))
+                     @ Matrix.Rotation(yy, 4, 'Z'))
+        mk.set_material(beam, lib.trim)
+        parts.append(beam)
+        cor = mk.sweep_straight(
+            f"{name}.cornice{ei}", orn.cornice_profile(0.52, 0.44),
+            (-length / 2 - 0.32, 0.0, 0.0), (length / 2 + 0.32, 0.0, 0.0),
+            (0, 1, 0), col=col)
+        mk.transform(cor, Matrix.Translation(mid + Vector((0, 0, ceil_z)))
+                     @ Matrix.Rotation(yy, 4, 'Z'))
+        mk.set_material(cor, lib.trim)
+        parts.append(cor)
+
+        # Sawn spandrels springing from each post head into the opening.
+        for end, sgn in ((a, 1), (b, -1)):
+            sp = orn.bracket(f"{name}.sp{ei}{sgn}", 1.05, 0.95, 0.07,
+                             "spandrel", pierce=False, col=col)
+            mk.transform(sp, Matrix.Translation(
+                Vector((end[0], end[1], ceil_z - 0.46)) + d * (0.30 * sgn))
+                @ Matrix.Rotation(yy, 4, 'Z')
+                @ Matrix.Scale(sgn, 4, (1.0, 0.0, 0.0)))
+            mk.recalc_normals(sp)
+            mk.set_material(sp, lib.trim)
+            parts.append(sp)
+
+    # Eaves brackets round the whole entablature.
+    brs = []
+    perimeter = [(-hw, 0.35), (-hw, depth), (hw, depth), (hw, 0.35)]
+    for pi in range(len(perimeter) - 1):
+        a = Vector(perimeter[pi] + (0.0,))
+        b = Vector(perimeter[pi + 1] + (0.0,))
+        d = (b - a)
+        length = d.length
+        d.normalize()
+        n = max(2, int(length / 1.05))
+        facing = math.atan2(d.y, d.x) + math.pi / 2
+        for k in range(n + 1):
+            p = a + d * (length * k / n)
+            br = orn.bracket(f"{name}.br{pi}{k}", 0.44, 0.62, 0.06, "scroll",
+                             pierce=False, col=col)
+            mk.transform(br, Matrix.Translation((p.x, p.y, ceil_z - 0.02))
+                         @ Matrix.Rotation(facing, 4, 'Z'))
+            brs.append(br)
+    b = mk.join(brs, f"{name}.brackets", col)
+    mk.set_material(b, lib.trim)
+    parts.append(b)
+
+    # A leaded flat above, with a balustrade - usable off the first floor.
+    deck = mk.box(f"{name}.flat", (0.0, (0.35 + depth) / 2, ceil_z + 0.50),
+                  (width + 1.0, depth - 0.35 + 0.9, 0.14), col)
+    mk.set_material(deck, lib.lead)
+    parts.append(deck)
+
+    rail_h = 0.98
+    bal_proto = orn.baluster(f"{name}.balproto", rail_h - 0.24, 0.10,
+                             max(10, segments - 6), "vase", col)
+    rails = []
+    top = [(-hw - 0.5, 0.4), (-hw - 0.5, depth + 0.45),
+           (hw + 0.5, depth + 0.45), (hw + 0.5, 0.4)]
+    for pi in range(len(top) - 1):
+        a, bb = top[pi], top[pi + 1]
+        d = Vector((bb[0] - a[0], bb[1] - a[1], 0.0))
+        length = d.length
+        d.normalize()
+        yy = math.atan2(d.y, d.x)
+        mid = Vector(((a[0] + bb[0]) / 2, (a[1] + bb[1]) / 2, 0.0))
+        rail = mk.sweep_straight(
+            f"{name}.rail{pi}", orn.handrail_profile(0.15, 0.09),
+            (-length / 2, 0, 0), (length / 2, 0, 0), (0, 1, 0), col=col)
+        mk.transform(rail, Matrix.Translation(
+            mid + Vector((0, 0, ceil_z + 0.57 + rail_h - 0.09)))
+            @ Matrix.Rotation(yy, 4, 'Z'))
+        rails.append(rail)
+        plinth = mk.box(f"{name}.railplinth{pi}", (0, 0, 0),
+                        (length, 0.24, 0.14), col)
+        mk.transform(plinth, Matrix.Translation(
+            mid + Vector((0, 0, ceil_z + 0.64)))
+            @ Matrix.Rotation(yy, 4, 'Z'))
+        rails.append(plinth)
+        n = max(2, int(length / 0.26))
+        for k in range(n):
+            t = (k + 0.5) / n
+            p = Vector((a[0], a[1], 0)).lerp(Vector((bb[0], bb[1], 0)), t)
+            rails.append(mk.instance(bal_proto, f"{name}.bal{pi}.{k}",
+                                     (p.x, p.y, ceil_z + 0.71), col=col))
+    bpy.data.objects.remove(bal_proto)
+    r = mk.join(rails, f"{name}.balustrade", col)
+    mk.set_material(r, lib.trim)
+    parts.append(r)
+
+    for i, (px, py) in enumerate(top):
+        pier = mk.box(f"{name}.railpier{i}", (px, py, ceil_z + 0.57 + rail_h / 2),
+                      (0.42, 0.42, rail_h + 0.16), col)
+        mk.set_material(pier, lib.trim)
+        parts.append(pier)
+        urn = orn.finial(f"{name}.railurn{i}", 0.72, 0.19, 16, "urn", col)
+        mk.transform(urn, Matrix.Translation(
+            (px, py, ceil_z + 0.57 + rail_h + 0.10)))
+        mk.set_material(urn, lib.trim)
+        parts.append(urn)
+
+    obj = mk.join(parts, name, col)
+    mk.transform(obj, Matrix.Translation((cx, cy, 0.0))
+                 @ Matrix.Rotation(yaw, 4, 'Z'))
+    return [obj]
