@@ -8,8 +8,9 @@ model is reproducible from a single command.
 
 ```
 pip install bpy==4.2.0
-python3 scripts/build_blend.py            # writes victorian_estate.blend
-python3 scripts/render_gallery.py preview # renders the views into renders/
+python3 scripts/build_blend.py             # writes victorian_estate.blend
+python3 scripts/render_gallery.py preview  # daylight views into renders/
+python3 scripts/render_dusk.py preview     # the same house with its lamps lit
 ```
 
 ## What is modelled
@@ -27,6 +28,10 @@ south-west corner.
   round and pointed heads; louvred shutters; leaded and stained glazing.
 - A two-storey canted bay with turned colonettes and a balustraded balcony,
   and a smaller hipped bay on the pavilion.
+- A porte-cochere on the east front: paired posts on stone piers, sawn
+  spandrels, a bracketed entablature and a balustraded flat over it, with the
+  drive running through.
+- Cast hopper heads and downpipes with collars, ears and swan-neck shoes.
 - The entrance: panelled double leaves with an etched upper light, stained
   sidelights, a fanlight transom and a bracketed hood.
 - A Second Empire mansard slated slate by slate, with patterned band courses,
@@ -53,9 +58,13 @@ into a level terrace around the house.
   urns, and wrought-iron carriage gates.
 - Carriage house with arched doors, a hay loft and a louvred cupola; an
   iron-and-glass conservatory; an octagonal gazebo; a gate lodge; a lake.
-- About 140 trees of eight species, clipped hedges, topiary and beds.
+- A walled kitchen garden with cross walks, rotation beds, cold frames and a
+  potting shed, and an orchard planted as a quincunx.
+- Cast-iron gas lamp standards, park benches, urns on plinths and statuary.
+- About 140 trees of ten species, clipped hedges, topiary, beds, and ivy on
+  the service elevations.
 
-Around 1.7 million vertices.
+Around 1.9 million vertices.
 
 ## How it is put together
 
@@ -96,8 +105,9 @@ Modelling without a viewport means faults are invisible until they show up in
 a render, so two scripts check the things that go wrong:
 
 ```
-python3 scripts/check_profiles.py    # every moulding profile
-python3 scripts/audit_geometry.py    # every mesh in the built model
+python3 scripts/check_profiles.py      # every moulding profile
+python3 scripts/audit_geometry.py      # every mesh in the built model
+python3 scripts/check_reproducible.py  # the same model twice
 ```
 
 `check_profiles.py` checks each profile is closed, wound counter-clockwise,
@@ -107,7 +117,12 @@ pinches the swept surface.
 
 `audit_geometry.py` builds the whole estate and reports inverted normals
 (a closed mesh with negative signed volume), degenerate faces, non-manifold
-edges and loose vertices. Both exit non-zero on failure.
+edges and loose vertices.
+
+`check_reproducible.py` builds the estate twice and compares object names and
+vertex counts. Seeding a tree from `hash(species)` looks harmless, but Python
+randomises string hashing per process, so the park was growing differently on
+every run. All three exit non-zero on failure.
 
 Between them they caught most of the real bugs in this project: linked
 instances collapsing onto the origin because `matrix_world` is stale until the
@@ -117,3 +132,10 @@ cusped foils tearing open where lobe arcs overlapped; gable roof quads twisted
 because ridge points were listed in the opposite order to eave points; and
 ground surfacing z-fighting to black wherever two paths crossed at the same
 height.
+
+The rest came from looking at renders, which is the only way to catch the
+faults that are geometrically valid but architecturally wrong: eaves brackets
+lying flat against the wall instead of standing edge-on to it, bargeboards
+rotated up off the ridge instead of down the rake, a veranda roof cutting
+across the heads of the windows behind it, and an attic storey whose windows
+did not fit under their own cornice.

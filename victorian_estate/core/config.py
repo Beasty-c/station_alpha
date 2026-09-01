@@ -222,6 +222,8 @@ class Detail:
     shrubs: int = 260
     grass_clumps: int = 0          # particle-scattered grass (expensive)
     interior: bool = True
+    #: Light the windows and the gas lamps, for the dusk views.
+    lit: bool = False
 
     @classmethod
     def draft(cls) -> "Detail":

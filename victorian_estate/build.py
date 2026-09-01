@@ -11,7 +11,7 @@ import bpy
 from .core import config, meshkit as mk, materials as mat
 from .core.render import Shot
 from .grounds import furniture, hardscape, layout, outbuildings, terrain
-from .mansion import interior, roof, shell, tower, veranda
+from .mansion import interior, rainwater, roof, shell, tower, veranda
 
 
 @dataclass(frozen=True)
@@ -86,7 +86,7 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
         print(f"  {label:<11s}{time.time() - t0:6.1f}s "
               f"{sum(len(o.data.vertices) for o in made):>9d} verts")
 
-    stage("shell", lambda: shell.build(lib, house))
+    stage("shell", lambda: shell.build(lib, house, detail))
     if detail.interior:
         stage("interior", lambda: interior.build(lib, house))
 
@@ -99,6 +99,8 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
     stage("steps", lambda: [veranda.steps(
         "veranda.steps", (1.10, config.MAIN.y1 + config.VERANDA_DEPTH),
         (0.0, 1.0), 3.30, plan.deck_z, lib, porch)])
+
+    stage("rainwater", lambda: rainwater.build(lib, house))
 
     tow = mk.collection("Tower", root)
     stage("tower", lambda: tower.build(lib, tow))
@@ -138,7 +140,7 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
     stage("lodge", lambda: outbuildings.lodge(lib, works))
     stage("pond", lambda: outbuildings.pond(lib, works))
 
-    stage("furniture", lambda: furniture.build(lib, site))
+    stage("furniture", lambda: furniture.build(lib, site, lit=detail.lit))
 
     green = mk.collection("Planting", root)
     stage("planting", lambda: layout.build(lib, green, detail))

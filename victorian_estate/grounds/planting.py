@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import random
+import zlib
 
 import bpy
 from mathutils import Euler, Matrix, Vector
@@ -98,7 +99,10 @@ def tree(name: str, species: str, lib: Library, col, seed: int = 0,
          scale: float = 1.0) -> bpy.types.Object:
     """Grow one tree prototype."""
     spec = SPECIES[species]
-    rng = random.Random(seed * 7919 + hash(species) % 1000)
+    # zlib.crc32, not hash(): Python randomises string hashing per process,
+    # so hash() here would grow a different tree on every run and the model
+    # would not be reproducible.
+    rng = random.Random(seed * 7919 + zlib.crc32(species.encode()) % 100003)
     height = spec["h"] * scale * rng.uniform(0.85, 1.15)
 
     wood_v: list[tuple] = []

@@ -102,10 +102,15 @@ FLOORS = {
 SILL = {1: config.WIN_SILL, 2: config.WIN_SILL, 3: config.WIN_SILL_3}
 
 
+#: Set by build() so the window schedule can light the house for dusk views.
+LIT = False
+
+
 def window_spec(floor: int, **overrides) -> W.WindowSpec:
     """The house's standard window for a floor, with per-bay overrides."""
     _, height = FLOORS[floor]
-    base = dict(width=config.WIN_W, height=height, wall_t=WALL_T)
+    base = dict(width=config.WIN_W, height=height, wall_t=WALL_T,
+                lit=LIT and floor <= 2)
     if floor == 1:
         base.update(upper_lights=(2, 2), hood="cornice", hood_brackets=True,
                     corner_blocks=True, height=config.WIN_H_1, width=1.24)
@@ -433,8 +438,11 @@ def pavilion_schedule() -> dict[str, list[Bay]]:
     }
 
 
-def build(lib: Library, col=None) -> list[bpy.types.Object]:
+def build(lib: Library, col=None, detail: config.Detail | None = None
+          ) -> list[bpy.types.Object]:
     """Every wall, opening and trim course of the three blocks."""
+    global LIT
+    LIT = bool(detail and detail.lit)
     made: list[bpy.types.Object] = []
     made += build_block(config.MAIN, main_schedule(), lib, col, top_floor=3)
     made += build_block(config.WING, wing_schedule(), lib, col, top_floor=2)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import random
+import zlib
 
 import bpy
 from mathutils import Matrix, Vector
@@ -69,7 +70,7 @@ def _slated_gable(name: str, cx: float, cy: float, sx: float, sy: float,
         made.append(deck)
         if slate:
             made.append(slate_field(f"{name}.slate{i}", f, lib, col,
-                                    seed=hash(name) % 900 + i * 7))
+                                    seed=zlib.crc32(name.encode()) % 900 + i * 7))
     # Gable ends.
     for end in (0, 1):
         if along_x:
