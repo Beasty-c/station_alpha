@@ -37,10 +37,15 @@ print(f"built in {time.time() - t:.1f}s", flush=True)
 for name in ("Outbuildings",):
     hidden = bpy.data.collections.get(name)
     if hidden:
-        for obj in hidden.all_objects:
+        # Snapshot the list first.  Collection.all_objects is computed on
+        # demand, and mutating the objects while iterating it takes Blender
+        # down - silently, with a zero exit status and no traceback, which is
+        # a memorable way to lose half an hour.
+        objects = list(hidden.all_objects)
+        for obj in objects:
             obj.hide_render = True
-        print(f"hidden for elevations: {name} "
-              f"({len(hidden.all_objects)} objects)", flush=True)
+        print(f"hidden for elevations: {name} ({len(objects)} objects)",
+              flush=True)
 
 # Flat, near-frontal light: an elevation is for reading geometry, not mood,
 # but a little rake keeps the mouldings from disappearing altogether.
