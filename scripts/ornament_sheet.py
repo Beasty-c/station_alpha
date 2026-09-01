@@ -26,7 +26,7 @@ for s in ("scroll", "console", "spandrel", "plain"):
 add(orn.cresting("crest", 2.2, 1.0, 0.42, 0.05, col), "cresting", lib.iron)
 add(orn.spindle_frieze("frieze", 2.0, 1.4, 0.13, 0.30, 14, col), "frieze")
 add(orn.panel("panel", 1.3, 1.9, 0.16, 0.13, 0.05, col), "panel")
-add(orn.rosette("rosette", 0.8, 0.30, 10, col), "rosette")
+add(orn.rosette("rosette", 0.8, 0.42, 10, col), "rosette")
 
 # Moulding runs, swept along a short L so the mitre shows.
 path = [(-0.9, 0.5, 0), (0.6, 0.5, 0), (0.6, -0.7, 0)]
@@ -48,7 +48,8 @@ for label, sty in [("trefoil", "trefoil"), ("sawtooth", "sawtooth"),
                    orn.bargeboard_outline(2.2, 0.5, 5, 0.55, sty), -0.06, 0.06, col)
     mk.translate(o, (-1.1, 0, 1.5))
     add(o, label)
-for label, poly in [("quatrefoil", orn.quatrefoil(0.85)), ("trefoil.f", orn.trefoil(0.85))]:
+for label, poly in [("quatrefoil", orn.quatrefoil(0.85)), ("trefoil.f", orn.trefoil(0.85)),
+                    ("cinquefoil", orn.cinquefoil(0.85))]:
     o = mk.prism_y(f"foil.{label}", poly, -0.07, 0.07, col)
     mk.translate(o, (0, 0, 1.0))
     add(o, label)
@@ -69,7 +70,7 @@ mk.set_material(ground, mat.painted("Sheet.BG", (0.30, 0.29, 0.27), 0.6, 0.1))
 rr.studio_world(strength=1.1)
 key = rr.sun_lamp(elevation=38, rotation=232, energy=3.0, angle=2.5)
 cy = -(rows - 1) * PITCH / 2
-cam = rr.make_camera(rr.Shot("Sheet", (0.0, cy - 26.0, 21.0), (0.0, cy + 1.0, 1.2), lens=55))
+cam = rr.make_camera(rr.Shot("Sheet", (0.0, cy - 34.0, 11.5), (0.0, cy + 0.5, 1.15), lens=62))
 rr.configure("sheet")
 out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                    "renders", "ornament_sheet.png")

@@ -26,10 +26,14 @@ from . import config
 def sky_world(name: str = "World", sun_elevation: float = 22.0,
               sun_rotation: float = 214.0, turbidity: float = 3.4,
               strength: float = 1.0, dust: float = 0.02,
-              ozone: float = 1.6, altitude: float = 180.0
+              ozone: float = 1.6, altitude: float = 180.0,
+              sun_disc: bool = True, sun_intensity: float = 0.9
               ) -> bpy.types.World:
     """Nishita physical sky.  Low sun elevations give the long raking light
-    that makes bracket-and-cornice shadow work legible."""
+    that makes bracket-and-cornice shadow work legible.
+
+    Set ``sun_disc=False`` when pairing the sky with an explicit sun lamp -
+    leaving both on lights the scene twice and blows every highlight out."""
     world = bpy.data.worlds.get(name) or bpy.data.worlds.new(name)
     world.use_nodes = True
     nt = world.node_tree
@@ -43,8 +47,8 @@ def sky_world(name: str = "World", sun_elevation: float = 22.0,
     sky.air_density = 1.0
     sky.dust_density = dust
     sky.ozone_density = ozone
-    sky.sun_intensity = 0.9
-    sky.sun_disc = True
+    sky.sun_intensity = sun_intensity
+    sky.sun_disc = sun_disc
     sky.sun_size = math.radians(0.545)
 
     bg = nt.nodes.new("ShaderNodeBackground")
@@ -103,6 +107,24 @@ def sun_lamp(name: str = "Sun", elevation: float = 22.0,
     obj.location = (0, 0, 60)
     bpy.context.scene.collection.objects.link(obj)
     return obj
+
+
+def daylight(elevation: float = 22.0, rotation: float = 214.0,
+             sky_strength: float = 1.0, sun_energy: float = 2.6,
+             softness: float = 0.9, warmth: float = 0.0
+             ) -> tuple[bpy.types.World, bpy.types.Object]:
+    """Sky plus a matched key light, with the sky's own sun disc turned off.
+
+    This is the pairing every exterior render wants: the sky supplies the blue
+    fill and the horizon gradient, and one sun lamp supplies the key, so
+    shadow softness can be tuned without touching the ambient level.
+    """
+    world = sky_world(sun_elevation=elevation, sun_rotation=rotation,
+                      strength=sky_strength, sun_disc=False)
+    colour = (1.0, 0.93 - warmth * 0.10, 0.82 - warmth * 0.24)
+    sun = sun_lamp(elevation=elevation, rotation=rotation, energy=sun_energy,
+                   angle=softness, color=colour)
+    return world, sun
 
 
 # ---------------------------------------------------------------------------

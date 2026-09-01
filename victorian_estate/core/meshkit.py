@@ -164,9 +164,31 @@ def box_between(name: str, p0: Vec3, p1: Vec3,
     return box(name, c, s, col)
 
 
+def polygon_area(poly: Sequence[Vec2]) -> float:
+    """Signed area; positive for a counter-clockwise winding."""
+    n = len(poly)
+    return sum(poly[i][0] * poly[(i + 1) % n][1]
+               - poly[(i + 1) % n][0] * poly[i][1] for i in range(n)) / 2.0
+
+
+def as_ccw(poly: Sequence[Vec2]) -> list[tuple[float, float]]:
+    """Return the polygon wound counter-clockwise.
+
+    The extrusion helpers below wind their side faces on that assumption, and
+    a clockwise outline - which is exactly what the window and door code hands
+    round, since a casing sweep needs the opposite winding - would otherwise
+    extrude to a solid with every normal inverted.  An inside-out cutter makes
+    a boolean silently do nothing, so it is worth normalising here rather than
+    at each call site.
+    """
+    pts = [(float(x), float(y)) for x, y in poly]
+    return pts if polygon_area(pts) >= 0.0 else pts[::-1]
+
+
 def prism(name: str, poly: Sequence[Vec2], z0: float, z1: float,
           col: bpy.types.Collection | None = None) -> bpy.types.Object:
-    """Extrude a closed 2D polygon (CCW) between two Z heights."""
+    """Extrude a closed 2D polygon between two Z heights."""
+    poly = as_ccw(poly)
     n = len(poly)
     verts = [(x, y, z0) for x, y in poly] + [(x, y, z1) for x, y in poly]
     faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
@@ -179,6 +201,7 @@ def prism(name: str, poly: Sequence[Vec2], z0: float, z1: float,
 def prism_x(name: str, poly: Sequence[Vec2], x0: float, x1: float,
             col: bpy.types.Collection | None = None) -> bpy.types.Object:
     """Extrude a (y, z) polygon along X - useful for gables and mouldings."""
+    poly = as_ccw(poly)
     n = len(poly)
     verts = [(x0, y, z) for y, z in poly] + [(x1, y, z) for y, z in poly]
     faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
@@ -191,6 +214,7 @@ def prism_x(name: str, poly: Sequence[Vec2], x0: float, x1: float,
 def prism_y(name: str, poly: Sequence[Vec2], y0: float, y1: float,
             col: bpy.types.Collection | None = None) -> bpy.types.Object:
     """Extrude an (x, z) polygon along Y."""
+    poly = as_ccw(poly)
     n = len(poly)
     verts = [(x, y0, z) for x, z in poly] + [(x, y1, z) for x, z in poly]
     faces = [tuple(range(n)), tuple(range(2 * n - 1, n - 1, -1))]
@@ -371,6 +395,86 @@ def rect_path(x0: float, y0: float, x1: float, y1: float, z: float
     return [(x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z)]
 
 
+def frame_path(x0: float, x1: float, z0: float, z1: float, y: float
+               ) -> list[tuple[float, float, float]]:
+    """A closed rectangle standing in a wall plane (constant Y).
+
+    Wound top-left, top-right, bottom-right, bottom-left so that a sweep with
+    ``up=(0, 1, 0)`` sends the profile's +u away from the opening - i.e. a
+    casing grows outward around a window rather than closing over the glass.
+    """
+    return [(x0, y, z1), (x1, y, z1), (x1, y, z0), (x0, y, z0)]
+
+
+def sweep_straight(name: str, profile: Sequence[Vec2], p0: Vec3, p1: Vec3,
+                   out: Vec3, up: Vec3 = (0.0, 0.0, 1.0), cap: bool = True,
+                   col: bpy.types.Collection | None = None) -> bpy.types.Object:
+    """Sweep a section along a straight run with an explicit outward direction.
+
+    :func:`sweep` derives its own frame from the path tangent, which for a run
+    along +X with up=+Z points the profile's +u at -Y - backwards into the
+    wall.  Rather than remember which runs need flipping, straight mouldings
+    say where "out" is and get it built that way.
+    """
+    o = Vector(out)
+    u = Vector(up)
+    o = (o - u * o.dot(u))          # keep the frame orthogonal
+    if o.length < 1e-9:
+        raise ValueError(f"sweep_straight({name}): out is parallel to up")
+    o.normalize()
+    u = u.normalized()
+    a, b = Vector(p0), Vector(p1)
+    m = len(profile)
+    verts = []
+    for p in (a, b):
+        for (pu, pv) in profile:
+            q = p + o * pu + u * pv
+            verts.append((q.x, q.y, q.z))
+    faces = []
+    for j in range(m):
+        k = (j + 1) % m
+        faces.append((j, m + j, m + k, k))
+    if cap:
+        faces.append(tuple(range(m)))
+        faces.append(tuple(range(2 * m - 1, m - 1, -1)))
+    obj = obj_from(name, verts, faces, col=col)
+    recalc_normals(obj)
+    return obj
+
+
+def sweep_wall_path(name: str, profile: Sequence[Vec2],
+                    path2d: Sequence[Vec2], y: float, outward: float = 1.0,
+                    closed: bool = True,
+                    col: bpy.types.Collection | None = None
+                    ) -> bpy.types.Object:
+    """Sweep a moulding around an arbitrary outline standing in a wall plane.
+
+    ``path2d`` is a list of ``(x, z)`` wound **clockwise** in the XZ plane;
+    that is the direction that makes the profile's +u point away from the
+    enclosed opening, so an arched window head carries its casing outward the
+    same way a square one does.  ``profile`` is ``(u, v)`` with *v* projecting
+    out of the wall along +Y (pass ``outward=-1`` for a wall facing -Y).
+    """
+    prof = [(u, v * outward) for u, v in profile]
+    path = [(x, y, z) for x, z in path2d]
+    return sweep(name, prof, path, closed_path=closed, up=(0.0, 1.0, 0.0),
+                 col=col)
+
+
+def sweep_frame(name: str, profile: Sequence[Vec2], x0: float, x1: float,
+                z0: float, z1: float, y: float, outward: float = 1.0,
+                col: bpy.types.Collection | None = None) -> bpy.types.Object:
+    """Mitred rectangular frame in a vertical wall plane.
+
+    ``profile`` is ``(u, v)`` with *u* running outward from the opening within
+    the wall plane and *v* projecting out of the wall along +Y (scale
+    ``outward`` by -1 for a wall that faces -Y).
+    """
+    prof = [(u, v * outward) for u, v in profile]
+    return sweep(name, prof, frame_path(x0, x1, z0, z1, y), closed_path=True,
+                 up=(0.0, 1.0, 0.0), col=col)
+
+
 def arc_path(cx: float, cy: float, r: float, a0: float, a1: float,
              steps: int, z: float = 0.0) -> list[tuple[float, float, float]]:
     return [(cx + r * math.cos(a0 + (a1 - a0) * i / steps),
@@ -387,6 +491,75 @@ def poly_circle(cx: float, cy: float, r: float, n: int, phase: float = 0.0
                 ) -> list[tuple[float, float]]:
     return [(cx + r * math.cos(phase + TAU * i / n),
              cy + r * math.sin(phase + TAU * i / n)) for i in range(n)]
+
+
+def offset_polygon(poly: Sequence[Vec2], dist: float,
+                   clockwise: bool | None = None) -> list[tuple[float, float]]:
+    """Offset a closed polygon by ``dist``, positive being outward.
+
+    Each vertex moves along the bisector of its two edge normals, scaled by
+    1 / cos(half-angle) so the offset edges stay parallel to the originals -
+    the same mitre correction the sweep uses, in 2D.
+    """
+    n = len(poly)
+    if n < 3:
+        raise ValueError("offset_polygon needs a closed polygon")
+    if clockwise is None:
+        area = sum(poly[i][0] * poly[(i + 1) % n][1]
+                   - poly[(i + 1) % n][0] * poly[i][1] for i in range(n)) / 2.0
+        clockwise = area < 0.0
+    sign = -1.0 if clockwise else 1.0
+
+    def normal(a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = math.hypot(dx, dy)
+        if length < 1e-12:
+            return (0.0, 0.0)
+        # outward normal for a CCW polygon
+        return (dy / length * sign, -dx / length * sign)
+
+    out = []
+    for i in range(n):
+        n_in = normal(poly[(i - 1) % n], poly[i])
+        n_out = normal(poly[i], poly[(i + 1) % n])
+        bx, by = n_in[0] + n_out[0], n_in[1] + n_out[1]
+        blen = math.hypot(bx, by)
+        if blen < 1e-9:
+            bx, by, blen = n_out[0], n_out[1], 1.0
+        bx, by = bx / blen, by / blen
+        cos_half = bx * n_out[0] + by * n_out[1]
+        scale = 1.0 / cos_half if abs(cos_half) > 0.25 else 1.0
+        out.append((poly[i][0] + bx * dist * scale,
+                    poly[i][1] + by * dist * scale))
+    return out
+
+
+def band_solid(name: str, outer: Sequence[Vec2], inner: Sequence[Vec2],
+               y0: float, y1: float,
+               col: bpy.types.Collection | None = None) -> bpy.types.Object:
+    """A closed solid filling the gap between two matched closed outlines.
+
+    Both outlines live in the XZ plane and must have the same vertex count and
+    winding; the solid is extruded between ``y0`` and ``y1``.  This is how
+    every sash frame, shutter frame and arched head lining is made: offset the
+    opening inward for the light, then fill the ring left over.
+    """
+    n = len(outer)
+    if len(inner) != n:
+        raise ValueError("band_solid needs matched outlines")
+    verts = ([(x, y0, z) for x, z in outer] + [(x, y0, z) for x, z in inner]
+             + [(x, y1, z) for x, z in outer] + [(x, y1, z) for x, z in inner])
+    O0, I0, O1, I1 = 0, n, 2 * n, 3 * n
+    faces = []
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((O0 + i, O0 + j, I0 + j, I0 + i))      # back ring
+        faces.append((O1 + j, O1 + i, I1 + i, I1 + j))      # front ring
+        faces.append((O0 + j, O0 + i, O1 + i, O1 + j))      # outer wall
+        faces.append((I0 + i, I0 + j, I1 + j, I1 + i))      # inner wall
+    obj = obj_from(name, verts, faces, col=col)
+    recalc_normals(obj)
+    return obj
 
 
 # ---------------------------------------------------------------------------

@@ -155,7 +155,7 @@ PALETTE = {
     # Trim: a heavy cream, used for cornices, casings, columns
     "trim":        (0.796, 0.741, 0.596),
     # Accent: deep oxblood for sash, panel fields, door
-    "accent":      (0.278, 0.086, 0.075),
+    "accent":      (0.185, 0.048, 0.042),
     # Shadow accent: a bronze-green for brackets and spindle work
     "accent_dark": (0.098, 0.129, 0.114),
     # Highlight: gilded ochre picking out carved detail

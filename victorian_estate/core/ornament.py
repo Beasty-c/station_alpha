@@ -101,30 +101,25 @@ def cyma_reversa(depth: float, height: float, n: int = 7) -> list[Vec2]:
 
 
 def ovolo(depth: float, height: float, n: int = 8) -> list[Vec2]:
-    """A quarter-round - the workhorse bead under sills and around panels."""
-    pts = [(0.0, 0.0), (depth, 0.0)]
-    pts += arc(0.0, 0.0, 1.0, 0.0, math.pi / 2, n, include_first=False)
-    pts = [(0.0, 0.0), (depth, 0.0)] + [
+    """A convex quarter-round - the workhorse bead under sills and panels."""
+    return [(0.0, 0.0), (depth, 0.0)] + [
         (depth * math.cos(math.pi / 2 * i / n),
          height * math.sin(math.pi / 2 * i / n)) for i in range(1, n + 1)]
-    return pts
 
 
 def cavetto(depth: float, height: float, n: int = 8) -> list[Vec2]:
-    """A concave quarter-hollow."""
-    pts = [(0.0, 0.0), (depth, 0.0)]
-    pts += [(depth * math.cos(math.pi / 2 * (1 - i / n)),
-             height * (1 - math.sin(math.pi / 2 * (1 - i / n))))
-            for i in range(0, n + 1)]
-    pts.append((0.0, height))
-    return pts
+    """A concave quarter-hollow, running from (depth, 0) up to (0, height)."""
+    return [(0.0, 0.0)] + [
+        (depth * (1.0 - math.sin(math.pi / 2 * i / n)),
+         height * (1.0 - math.cos(math.pi / 2 * i / n)))
+        for i in range(n + 1)]
 
 
 def torus_bead(radius: float, n: int = 10) -> list[Vec2]:
-    """A half-round bead standing proud of the ground."""
+    """A half-round bead standing proud of the ground plane."""
     return [(0.0, -radius)] + [
         (radius * math.sin(math.pi * i / n),
-         -radius * math.cos(math.pi * i / n)) for i in range(n + 1)]
+         -radius * math.cos(math.pi * i / n)) for i in range(1, n + 1)]
 
 
 def fillet(depth: float, height: float) -> list[Vec2]:
@@ -192,25 +187,29 @@ def handrail_profile(width: float, height: float, n: int = 6) -> list[Vec2]:
 
 
 def casing_profile(width: float, depth: float) -> list[Vec2]:
-    """Window / door architrave: a flat face with a backband and a bead."""
+    """Window / door architrave: a flat face with a bead and a backband.
+
+    u runs outward from the opening and v projects out of the wall, so the
+    profile leaves the wall at u = 0, steps out to the face, and returns to
+    the wall at u = width where the backband dies into the siding.
+    """
     w, d = width, depth
     return [
-        (0.0, 0.0), (0.0, -d * 0.35), (w * 0.10, -d * 0.35),
-        (w * 0.10, -d), (w * 0.78, -d), (w * 0.78, -d * 0.55),
-        (w * 0.90, -d * 0.55), (w * 1.00, -d * 0.30), (w * 1.00, 0.0),
+        (0.0, 0.0), (w, 0.0),
+        (w, d * 0.30), (w * 0.90, d * 0.55), (w * 0.78, d * 0.55),
+        (w * 0.78, d), (w * 0.10, d),
+        (w * 0.10, d * 0.35), (0.0, d * 0.35),
     ]
 
 
 def astragal(radius: float, n: int = 8) -> list[Vec2]:
-    """A bead with fillets either side - used as a joint cover everywhere."""
+    """A bead with a fillet either side - the universal joint cover."""
     r = radius
-    p = [(0.0, -r * 1.7), (r * 0.35, -r * 1.7), (r * 0.35, -r)]
-    p += arc(0.0, 0.0, r, -math.pi / 2, math.pi / 2, n, include_first=False)
-    p = [(0.0, -r * 1.7), (r * 0.35, -r * 1.7), (r * 0.35, -r)] + \
-        [(r * math.cos(a), r * math.sin(a))
-         for a in [(-math.pi / 2) + math.pi * i / n for i in range(n + 1)]] + \
-        [(r * 0.35, r), (r * 0.35, r * 1.7), (0.0, r * 1.7)]
-    return p
+    return ([(0.0, -r * 1.7), (r * 0.35, -r * 1.7), (r * 0.35, -r)]
+            + [(r * math.cos(-math.pi / 2 + math.pi * i / n),
+                r * math.sin(-math.pi / 2 + math.pi * i / n))
+               for i in range(1, n)]
+            + [(r * 0.35, r), (r * 0.35, r * 1.7), (0.0, r * 1.7)])
 
 
 # ---------------------------------------------------------------------------
