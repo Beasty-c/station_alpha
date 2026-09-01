@@ -161,7 +161,7 @@ PALETTE = {
     # Highlight: gilded ochre picking out carved detail
     "gilt":        (0.545, 0.396, 0.145),
     "slate":       (0.055, 0.062, 0.072),
-    "slate_band":  (0.118, 0.075, 0.078),   # patterned band courses
+    "slate_band":  (0.062, 0.042, 0.058),   # patterned band courses
     "brick":       (0.176, 0.075, 0.058),
     "stone":       (0.392, 0.365, 0.318),
     "iron":        (0.021, 0.022, 0.024),

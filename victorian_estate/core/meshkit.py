@@ -171,8 +171,39 @@ def polygon_area(poly: Sequence[Vec2]) -> float:
                - poly[(i + 1) % n][0] * poly[i][1] for i in range(n)) / 2.0
 
 
+def clean_polygon(poly: Sequence[Vec2], eps: float = 1e-7
+                  ) -> list[tuple[float, float]]:
+    """Drop consecutive duplicate and exactly collinear vertices.
+
+    Repeating outlines - bargeboard teeth, cresting pickets, bracket scrolls -
+    naturally end one motif where the next begins, and the doubled vertex
+    extrudes to a zero-area side face.  Those faces have no valid normal, so
+    they show up as black slivers and shading artefacts.
+    """
+    pts = [(float(x), float(y)) for x, y in poly]
+    out: list[tuple[float, float]] = []
+    for p in pts:
+        if not out or math.dist(p, out[-1]) > eps:
+            out.append(p)
+    while len(out) > 1 and math.dist(out[0], out[-1]) <= eps:
+        out.pop()
+    if len(out) < 3:
+        return out
+
+    keep: list[tuple[float, float]] = []
+    n = len(out)
+    for i in range(n):
+        a, b, c = out[(i - 1) % n], out[i], out[(i + 1) % n]
+        cross = ((b[0] - a[0]) * (c[1] - a[1])
+                 - (b[1] - a[1]) * (c[0] - a[0]))
+        scale = max(math.dist(a, b) * math.dist(b, c), eps)
+        if abs(cross) > eps * scale:
+            keep.append(b)
+    return keep if len(keep) >= 3 else out
+
+
 def as_ccw(poly: Sequence[Vec2]) -> list[tuple[float, float]]:
-    """Return the polygon wound counter-clockwise.
+    """Return the polygon cleaned and wound counter-clockwise.
 
     The extrusion helpers below wind their side faces on that assumption, and
     a clockwise outline - which is exactly what the window and door code hands
@@ -181,7 +212,7 @@ def as_ccw(poly: Sequence[Vec2]) -> list[tuple[float, float]]:
     a boolean silently do nothing, so it is worth normalising here rather than
     at each call site.
     """
-    pts = [(float(x), float(y)) for x, y in poly]
+    pts = clean_polygon(poly)
     return pts if polygon_area(pts) >= 0.0 else pts[::-1]
 
 
@@ -189,6 +220,7 @@ def prism(name: str, poly: Sequence[Vec2], z0: float, z1: float,
           col: bpy.types.Collection | None = None) -> bpy.types.Object:
     """Extrude a closed 2D polygon between two Z heights."""
     poly = as_ccw(poly)
+    z0, z1 = min(z0, z1), max(z0, z1)
     n = len(poly)
     verts = [(x, y, z0) for x, y in poly] + [(x, y, z1) for x, y in poly]
     faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
@@ -202,6 +234,7 @@ def prism_x(name: str, poly: Sequence[Vec2], x0: float, x1: float,
             col: bpy.types.Collection | None = None) -> bpy.types.Object:
     """Extrude a (y, z) polygon along X - useful for gables and mouldings."""
     poly = as_ccw(poly)
+    x0, x1 = min(x0, x1), max(x0, x1)
     n = len(poly)
     verts = [(x0, y, z) for y, z in poly] + [(x1, y, z) for y, z in poly]
     faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
@@ -215,6 +248,7 @@ def prism_y(name: str, poly: Sequence[Vec2], y0: float, y1: float,
             col: bpy.types.Collection | None = None) -> bpy.types.Object:
     """Extrude an (x, z) polygon along Y."""
     poly = as_ccw(poly)
+    y0, y1 = min(y0, y1), max(y0, y1)
     n = len(poly)
     verts = [(x, y0, z) for x, z in poly] + [(x, y1, z) for x, z in poly]
     faces = [tuple(range(n)), tuple(range(2 * n - 1, n - 1, -1))]
@@ -577,6 +611,11 @@ def bevel(obj: bpy.types.Object, width: float = 0.01, segments: int = 2,
     if edges:
         bmesh.ops.bevel(bm, geom=edges, offset=width, segments=segments,
                         profile=0.5, affect='EDGES', clamp_overlap=True)
+        # Overlap clamping collapses the bevel to nothing where two arrises
+        # meet at a tight angle - a scroll's inner curl, say - leaving
+        # zero-area faces with no usable normal.  Dissolve them out.
+        bmesh.ops.dissolve_degenerate(bm, dist=width * 1e-3,
+                                      edges=list(bm.edges))
     bm.to_mesh(obj.data)
     bm.free()
     obj.data.update()
@@ -606,6 +645,36 @@ def shade_smooth(obj: bpy.types.Object, angle: float = math.radians(31)
 def shade_flat(obj: bpy.types.Object) -> bpy.types.Object:
     for poly in obj.data.polygons:
         poly.use_smooth = False
+    return obj
+
+
+def orient_outward(obj: bpy.types.Object, center: Vec3,
+                   axis_only: bool = True) -> bpy.types.Object:
+    """Flip any face whose normal points back toward ``center``.
+
+    recalc_face_normals resolves orientation from enclosed volume, which an
+    open shell - a roof loft, a soffit band - does not have, so it can settle
+    on inward-facing normals.  For a shell wrapped around a known axis the
+    outward direction is unambiguous, so state it instead of inferring it.
+    """
+    me = obj.data
+    cx, cy, cz = center
+    flipped = []
+    for poly in me.polygons:
+        c = poly.center
+        radial = Vector((c.x - cx, c.y - cy, 0.0 if axis_only else c.z - cz))
+        if radial.length < 1e-9:
+            continue
+        if poly.normal.dot(radial.normalized()) < 0.0:
+            flipped.append(poly.index)
+    if flipped:
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.reverse_faces(bm, faces=[bm.faces[i] for i in flipped])
+        bm.to_mesh(me)
+        bm.free()
+        me.update()
     return obj
 
 

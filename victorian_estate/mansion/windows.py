@@ -440,14 +440,17 @@ def _hood(name: str, spec: WindowSpec, lib: Library, col
             parts.append(rake)
 
     if spec.hood_brackets:
+        # As on the eaves, a console stands edge-on to the wall: rotate its
+        # silhouette a quarter turn so its projection runs out along +Y.
         for sgn in (-1, 1):
-            b = orn.bracket(f"{name}.hb{sgn}", proj * 0.72, cor_h * 3.0,
+            b = orn.bracket(f"{name}.hb{sgn}", proj * 0.74, cor_h * 3.0,
                             0.055, "console", pierce=False, col=col)
-            m = Matrix.Translation((sgn * (half + spec.casing_w * 0.5), 0.0,
-                                    top + cor_h * 0.7))
-            if sgn > 0:
-                m = m @ Matrix.Rotation(math.pi, 4, 'Z')
+            m = (Matrix.Translation((sgn * (half + spec.casing_w * 0.55), 0.0,
+                                     top + cor_h * 0.7))
+                 @ Matrix.Rotation(math.pi / 2, 4, 'Z')
+                 @ Matrix.Scale(sgn, 4, (0.0, 1.0, 0.0)))
             mk.transform(b, m)
+            mk.recalc_normals(b)
             mk.set_material(b, lib.trim)
             parts.append(b)
     return parts
