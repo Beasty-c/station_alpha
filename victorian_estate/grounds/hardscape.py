@@ -330,6 +330,66 @@ def iron_gate(name: str, cx: float, cy: float, width: float, height: float,
     return obj
 
 
+def estate_railing(name: str, path, lib: Library, col, height: float = 1.15,
+                   pitch: float = 2.35, rails: int = 3
+                   ) -> bpy.types.Object:
+    """Light iron park fencing - round standards and horizontal rails.
+
+    This is what divided a park from its paddocks: it keeps stock in without
+    interrupting the view, which is the whole point of the thing.
+    """
+    parts = []
+    for i, (a, b) in enumerate(zip(path, path[1:])):
+        d = Vector((b[0] - a[0], b[1] - a[1], 0.0))
+        length = d.length
+        if length < 1e-6:
+            continue
+        d.normalize()
+        n = max(1, int(round(length / pitch)))
+        for k in range(n + 1):
+            p = Vector((a[0], a[1], 0.0)) + d * (length * k / n)
+            z = T.height(p.x, p.y)
+            post = mk.lathe(f"{name}.post{i}.{k}", [
+                (0.030, 0.0), (0.030, height), (0.022, height + 0.05),
+                (0.0, height + 0.09)], 8, center=(p.x, p.y, z - 0.25), col=col)
+            parts.append(post)
+        # Rails, drooping to follow the ground between the posts.
+        steps = max(2, int(length / 1.1))
+        for r in range(rails):
+            rz = height * (0.30 + 0.66 * r / max(1, rails - 1))
+            verts, faces = [], []
+            for k in range(steps + 1):
+                p = Vector((a[0], a[1], 0.0)) + d * (length * k / steps)
+                z = T.height(p.x, p.y) - 0.25 + rz
+                nrm = Vector((-d.y, d.x, 0.0)) * 0.018
+                for s in (-1, 1):
+                    q = p + nrm * s
+                    verts.append((q.x, q.y, z - 0.018))
+                    verts.append((q.x, q.y, z + 0.018))
+            for k in range(steps):
+                a0 = k * 4
+                b0 = a0 + 4
+                faces += [(a0, a0 + 1, b0 + 1, b0), (a0 + 2, b0 + 2, b0 + 3, a0 + 3),
+                          (a0 + 1, a0 + 3, b0 + 3, b0 + 1), (a0, b0, b0 + 2, a0 + 2)]
+            rail = mk.obj_from(f"{name}.rail{i}.{r}", verts, faces, col=col)
+            mk.recalc_normals(rail)
+            parts.append(rail)
+    obj = mk.join(parts, name, col)
+    mk.set_material(obj, lib.iron)
+    return obj
+
+
+def paddock_fencing(lib: Library, col) -> list[bpy.types.Object]:
+    """Railings dividing the park from the orchard and the paddock beyond."""
+    runs = [
+        [(-88.0, -4.0), (-88.0, -48.0), (-30.0, -52.0)],
+        [(-30.0, -52.0), (-30.0, -66.0)],
+        [(38.0, 40.0), (74.0, 34.0), (86.0, 6.0)],
+    ]
+    return [estate_railing(f"railing{i}", run, lib, col)
+            for i, run in enumerate(runs)]
+
+
 def perimeter(lib: Library, col) -> list[bpy.types.Object]:
     """Estate wall along the south boundary, with the gateway at its centre."""
     made = []

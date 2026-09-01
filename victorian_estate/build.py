@@ -132,6 +132,7 @@ def build_all(detail: config.Detail | None = None, fresh: bool = True) -> dict:
     stage("terrace", lambda: hardscape.terrace(lib, site))
     stage("fountain", lambda: hardscape.fountain(lib, site))
     stage("perimeter", lambda: hardscape.perimeter(lib, site))
+    stage("railings", lambda: hardscape.paddock_fencing(lib, site))
 
     works = mk.collection("Outbuildings", root)
     stage("carriage house", lambda: outbuildings.carriage_house(lib, works))

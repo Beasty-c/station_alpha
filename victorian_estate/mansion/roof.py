@@ -209,6 +209,37 @@ def mansard(b: config.Block, lib: Library, col, eave_z: float,
                                     exposure=config.SLATE_EXPOSURE * 1.15,
                                     jitter=0.6, seed=100 + i * 31))
 
+    # Snow guards two courses up from the eaves.  A slate roof this steep
+    # sheds in sheets, and no house of this date over a public entrance was
+    # built without them.
+    for i in range(4):
+        j = (i + 1) % 4
+        a, bb = eave[i], eave[j]
+        run = (bb - a).length
+        d = (bb - a) / run
+        outward = Vector((d.y, -d.x, 0.0))
+        rise = config.SLATE_EXPOSURE * 3.0
+        inset = rise * (lower_run / lower_rise)
+        guards = []
+        n = max(2, int(run / 0.55))
+        for k in range(n):
+            p = a + d * (run * (k + 0.5) / n) - outward * inset \
+                + Vector((0.0, 0.0, rise))
+            bracket = mk.box(f"{b.name}.snow{i}.{k}", (0, 0, 0),
+                             (0.035, 0.10, 0.20), col)
+            mk.transform(bracket, Matrix.Translation(p)
+                         @ Matrix.Rotation(math.atan2(d.y, d.x), 4, 'Z'))
+            guards.append(bracket)
+        bar = mk.box(f"{b.name}.snowbar{i}", (0, 0, 0), (run, 0.030, 0.075),
+                     col)
+        mid = (a + bb) / 2 - outward * inset + Vector((0.0, 0.0, rise + 0.10))
+        mk.transform(bar, Matrix.Translation(mid)
+                     @ Matrix.Rotation(math.atan2(d.y, d.x), 4, 'Z'))
+        guards.append(bar)
+        g = mk.join(guards, f"{b.name}.snowguard{i}", col)
+        mk.set_material(g, lib.iron)
+        made.append(g)
+
     # Cast-iron cresting round the deck, with corner standards.
     for i in range(4):
         j = (i + 1) % 4

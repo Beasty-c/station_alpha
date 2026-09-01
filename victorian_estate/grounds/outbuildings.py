@@ -327,11 +327,135 @@ def conservatory(lib: Library, col) -> list[bpy.types.Object]:
         mk.set_material(end, lib.glass)
         made.append(end)
 
-    ridge = orn.cresting("conservatory.cresting", sy, 0.34, 0.26, 0.016, col)
+    made += conservatory_interior(cx, cy, sx, sy, z0 + wall_h, lib, col)
+
+    ridge = orn.cresting("conservatory.cresting", sy, 0.34, 0.016 * 20, 0.016,
+                         col)
     mk.transform(ridge, Matrix.Translation((cx, cy - sy / 2, eave + radius))
                  @ Matrix.Rotation(math.pi / 2, 4, 'Z'))
     mk.set_material(ridge, lib.iron)
     made.append(ridge)
+    return made
+
+
+def palm(name: str, x: float, y: float, z: float, lib: Library, col,
+         height: float = 3.2, fronds: int = 11, seed: int = 0
+         ) -> bpy.types.Object:
+    """A tub palm - the thing every Victorian conservatory was full of."""
+    rng = random.Random(seed)
+    parts = []
+    tub = mk.lathe(f"{name}.tub", [
+        (0.0, 0.0), (0.30, 0.0), (0.32, 0.04), (0.34, 0.44), (0.38, 0.50),
+        (0.38, 0.56), (0.34, 0.58), (0.32, 0.54), (0.30, 0.10), (0.0, 0.10),
+    ], 14, center=(x, y, z), col=col)
+    mk.set_material(tub, lib.brick)
+    parts.append(tub)
+
+    trunk_h = height * 0.42
+    trunk = mk.lathe(f"{name}.trunk", [
+        (0.11, 0.0), (0.095, trunk_h * 0.4), (0.082, trunk_h * 0.75),
+        (0.075, trunk_h)], 9, center=(x, y, z + 0.5), col=col)
+    mk.set_material(trunk, lib.bark)
+    parts.append(trunk)
+
+    crown = z + 0.5 + trunk_h
+    blades = []
+    for i in range(fronds):
+        az = math.tau * i / fronds + rng.uniform(-0.2, 0.2)
+        droop = rng.uniform(0.35, 0.85)
+        length = (height - trunk_h - 0.5) * rng.uniform(0.85, 1.25)
+        # A frond as a tapering strip that bends over under its own weight.
+        verts, faces = [], []
+        segs = 6
+        for k in range(segs + 1):
+            t = k / segs
+            r = length * t
+            zz = crown + length * (0.42 * t - droop * t * t)
+            w = 0.16 * (1.0 - 0.75 * t) * (0.4 + 0.6 * math.sin(math.pi * t))
+            for side in (-1, 1):
+                verts.append((x + r * math.cos(az) - side * w * math.sin(az),
+                              y + r * math.sin(az) + side * w * math.cos(az),
+                              zz))
+        for k in range(segs):
+            a = k * 2
+            faces.append((a, a + 2, a + 3, a + 1))
+        blades.append(mk.obj_from(f"{name}.frond{i}", verts, faces, col=col))
+    fr = mk.join(blades, f"{name}.fronds", col)
+    mk.set_material(fr, lib.leaf)
+    parts.append(fr)
+    return mk.join(parts, name, col)
+
+
+def conservatory_interior(cx: float, cy: float, sx: float, sy: float,
+                          z: float, lib: Library, col
+                          ) -> list[bpy.types.Object]:
+    """Staging down both sides, a tiled walk, and a collection of palms.
+
+    Worth the geometry: the whole point of a glasshouse is that you see into
+    it, and an empty one reads as an oddly shaped shed.
+    """
+    made = []
+    rng = random.Random(31)
+    walk = mk.prism("conservatory.walk",
+                    [(cx - 1.3, cy - sy / 2 + 0.4), (cx + 1.3, cy - sy / 2 + 0.4),
+                     (cx + 1.3, cy + sy / 2 - 0.4), (cx - 1.3, cy + sy / 2 - 0.4)],
+                    z - 0.94, z - 0.90, col)
+    mk.set_material(walk, lib.stone)
+    made.append(walk)
+
+    staging = []
+    for sgn in (-1, 1):
+        bx = cx + sgn * (sx / 2 - 1.05)
+        top = mk.box(f"conservatory.bench{sgn}", (bx, cy, z - 0.10),
+                     (1.7, sy - 1.4, 0.07), col)
+        staging.append(top)
+        for i in range(6):
+            ly = cy - sy / 2 + 0.9 + i * (sy - 1.8) / 5
+            staging.append(mk.box(f"conservatory.leg{sgn}{i}", (bx, ly, z - 0.52),
+                                  (1.5, 0.06, 0.84), col))
+    st = mk.join(staging, "conservatory.staging", col)
+    mk.set_material(st, lib.iron)
+    made.append(st)
+
+    # Pots on the staging.  Positions are settled once and reused for the
+    # foliage, so each plant sits in a pot rather than beside one.
+    spots = []
+    for i in range(46):
+        sgn = 1 if i % 2 else -1
+        spots.append((cx + sgn * (sx / 2 - 1.05) + rng.uniform(-0.55, 0.55),
+                      cy + rng.uniform(-sy / 2 + 1.0, sy / 2 - 1.0),
+                      rng.uniform(0.7, 1.3)))
+
+    proto = mk.lathe("conservatory.potproto",
+                     [(0.0, 0.0), (0.11, 0.0), (0.13, 0.15), (0.145, 0.19),
+                      (0.125, 0.20), (0.105, 0.16), (0.0, 0.16)], 10, col=col)
+    pots = [mk.instance(proto, f"conservatory.pot{i}", (px, py, z - 0.06),
+                        scale=(ps, ps, ps), col=col)
+            for i, (px, py, ps) in enumerate(spots)]
+    bpy.data.objects.remove(proto)
+    po = mk.join(pots, "conservatory.pots", col)
+    mk.set_material(po, lib.brick)
+    made.append(po)
+
+    # Foliage in those pots, and palms in tubs down the walk.
+    from .planting import _blob
+    leaf_v, leaf_f = [], []
+    for px, py, ps in spots:
+        vs, fs = _blob(rng, 0.20 * ps, 0.45)
+        base = len(leaf_v)
+        for vx, vy, vz in vs:
+            leaf_v.append((px + vx, py + vy, z + 0.10 + 0.16 * ps + vz))
+        for f in fs:
+            leaf_f.append(tuple(base + k for k in f))
+    greens = mk.obj_from("conservatory.potplants", leaf_v, leaf_f, col=col)
+    mk.set_material(greens, lib.leaf)
+    mk.shade_smooth(greens, math.radians(60))
+    made.append(greens)
+
+    for i, ty in enumerate((-3.6, -0.6, 2.6, 5.0)):
+        made.append(palm(f"conservatory.palm{i}", cx + (0.6 if i % 2 else -0.6),
+                         cy + ty, z - 0.90, lib, col,
+                         height=rng.uniform(2.6, 3.9), seed=i))
     return made
 
 
