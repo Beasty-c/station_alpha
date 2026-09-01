@@ -39,16 +39,30 @@ def sky_world(name: str = "World", sun_elevation: float = 22.0,
     nt.nodes.clear()
     sky = nt.nodes.new("ShaderNodeTexSky")
     sky.location = (-400, 0)
-    sky.sky_type = 'NISHITA'
-    sky.sun_elevation = math.radians(sun_elevation)
-    sky.sun_rotation = math.radians(sun_rotation)
-    sky.altitude = altitude
-    sky.air_density = 1.0
-    sky.dust_density = dust
-    sky.ozone_density = ozone
-    sky.sun_intensity = sun_intensity
-    sky.sun_disc = sun_disc
-    sky.sun_size = math.radians(0.545)
+    # Blender 4.x calls the physical sky NISHITA; 5.0 splits it into single-
+    # and multiple-scattering variants and drops the old name, so ask the
+    # node which models it actually has rather than naming one.
+    models = [i.identifier
+              for i in sky.bl_rna.properties["sky_type"].enum_items]
+    for preferred in ("NISHITA", "MULTIPLE_SCATTERING", "SINGLE_SCATTERING",
+                      "HOSEK_WILKIE"):
+        if preferred in models:
+            sky.sky_type = preferred
+            break
+
+    # dust_density also went away in 5.0; set what this build understands.
+    for attr, value in (("sun_elevation", math.radians(sun_elevation)),
+                        ("sun_rotation", math.radians(sun_rotation)),
+                        ("altitude", altitude),
+                        ("air_density", 1.0),
+                        ("dust_density", dust),
+                        ("ozone_density", ozone),
+                        ("sun_intensity", sun_intensity),
+                        ("sun_disc", sun_disc),
+                        ("sun_size", math.radians(0.545)),
+                        ("turbidity", turbidity)):
+        if hasattr(sky, attr):
+            setattr(sky, attr, value)
 
     bg = nt.nodes.new("ShaderNodeBackground")
     bg.location = (-140, 0)

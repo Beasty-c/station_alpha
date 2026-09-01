@@ -206,9 +206,18 @@ def tree(name: str, species: str, lib: Library, col, seed: int = 0,
 
 def plantation(name: str, positions, lib: Library, col,
                species: tuple[str, ...] = ("oak", "elm", "beech", "lime"),
-               variants: int = 3, seed: int = 0, scale: float = 1.0
-               ) -> bpy.types.Object:
-    """Instance a handful of prototypes across many positions."""
+               variants: int = 3, seed: int = 0, scale: float = 1.0,
+               instanced: bool = True) -> list[bpy.types.Object]:
+    """Grow a handful of prototypes and place them across many positions.
+
+    The trees stay as linked duplicates rather than being joined into one
+    mesh.  Joining looks tidier in the outliner but stores every tree's
+    geometry in full: a hundred and forty joined trees are 1.3 million
+    vertices on disk, where a hundred and forty instances of twelve
+    prototypes are about a tenth of that, and Cycles renders instances
+    natively.  Pass ``instanced=False`` when exporting to a format that
+    cannot carry instances.
+    """
     rng = random.Random(seed)
     protos = []
     for si, sp in enumerate(species):
@@ -224,9 +233,10 @@ def plantation(name: str, positions, lib: Library, col,
                                 rotation=(0.0, 0.0, rng.uniform(0, math.tau)),
                                 scale=(s, s, s * rng.uniform(0.92, 1.10)),
                                 col=col))
+    # The prototypes' meshes stay alive: every instance references one.
     for p in protos:
         bpy.data.objects.remove(p)
-    return mk.join(made, name, col)
+    return made if instanced else [mk.join(made, name, col)]
 
 
 # ---------------------------------------------------------------------------

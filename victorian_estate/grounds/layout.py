@@ -237,27 +237,27 @@ def build(lib: Library, col, detail: config.Detail) -> list[bpy.types.Object]:
     """All the planting on the estate."""
     made: list[bpy.types.Object] = []
 
-    made.append(P.plantation(
+    made += P.plantation(
         "park.specimen", scatter(int(detail.trees * 0.42), seed=11,
                                  spacing=17.0),
         lib, col, species=("oak", "beech", "cedar", "elm"), variants=3,
-        seed=101))
-    made.append(P.plantation(
+        seed=101)
+    made += P.plantation(
         "park.belt", scatter(int(detail.trees * 0.58), seed=23, spacing=8.5),
         lib, col, species=("lime", "birch", "elm", "poplar"), variants=3,
-        seed=202, scale=0.86))
-    made.append(P.plantation("park.avenue", avenue(), lib, col,
+        seed=202, scale=0.86)
+    made += P.plantation("park.avenue", avenue(), lib, col,
                              species=("lime",), variants=3, seed=303,
-                             scale=0.92))
-    made.append(P.plantation(
+                             scale=0.92)
+    made += P.plantation(
         "park.willows",
         [(config.POND_XY[0] + math.cos(a) * 13.5,
           config.POND_XY[1] + math.sin(a) * 13.5)
          for a in [0.4, 1.3, 2.2, 3.4, 4.6, 5.5]],
-        lib, col, species=("willow",), variants=2, seed=404))
+        lib, col, species=("willow",), variants=2, seed=404)
 
-    made.append(P.plantation("park.orchard", orchard_positions(), lib, col,
-                             species=("apple", "pear"), variants=4, seed=505))
+    made += P.plantation("park.orchard", orchard_positions(), lib, col,
+                             species=("apple", "pear"), variants=4, seed=505)
 
     made += parterre(lib, col)
     made += foundation_planting(lib, col)
