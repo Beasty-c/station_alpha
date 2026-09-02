@@ -304,6 +304,62 @@ func rederive_all() -> void:
 	_rederive(Vector4i(0, 0, -1, -1))
 
 
+# --- Live stroke preview -----------------------------------------------------
+## While the pointer is down the user must see the ground move, but the history
+## must still contain exactly ONE operation for the whole stroke.
+##
+## So the preview edits the surface directly, and on commit the surface is
+## rewound to where the stroke began and the operation is replayed from its
+## recorded stamps. The committed state is therefore produced by the same code
+## path as a reload or an undo/redo, and cannot drift from it.
+
+var _stroke_backup: PackedFloat32Array = PackedFloat32Array()
+var _stroke_active: bool = false
+
+
+func begin_live_stroke() -> void:
+	if sculpt == null:
+		return
+	_stroke_backup = sculpt.heights.duplicate()
+	_stroke_active = true
+
+
+func live_stamp(mode: TFBrush.Mode, stamp: Dictionary) -> Vector4i:
+	if not _stroke_active or sculpt == null:
+		return Vector4i(0, 0, -1, -1)
+	var b := TFBrush.apply_stamp(sculpt, mode, stamp)
+	if b.z >= b.x:
+		_rederive(b)
+	return b
+
+
+func commit_live_stroke(mode: TFBrush.Mode, stamps: Array) -> void:
+	if not _stroke_active:
+		return
+	_stroke_active = false
+	if sculpt != null and _stroke_backup.size() == sculpt.heights.size():
+		sculpt.heights = _stroke_backup
+	_stroke_backup = PackedFloat32Array()
+	if stamps.is_empty():
+		_rederive(Vector4i(0, 0, -1, -1))
+		return
+	apply_stroke(mode, stamps)
+
+
+func cancel_live_stroke() -> void:
+	if not _stroke_active:
+		return
+	_stroke_active = false
+	if sculpt != null and _stroke_backup.size() == sculpt.heights.size():
+		sculpt.heights = _stroke_backup
+	_stroke_backup = PackedFloat32Array()
+	_rederive(Vector4i(0, 0, -1, -1))
+
+
+func is_stroking() -> bool:
+	return _stroke_active
+
+
 # --- Convenience mutators (each records exactly one operation) ---------------
 func apply_stroke(mode: TFBrush.Mode, stamps: Array) -> void:
 	if stamps.is_empty():
