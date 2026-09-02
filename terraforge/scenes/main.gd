@@ -506,19 +506,28 @@ func _update_brush_ring() -> void:
 		return
 	var field := terrain_view.surface()
 	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_LINE_STRIP)
+	# Two separate rings, so PRIMITIVE_LINES rather than a strip: a strip would
+	# draw a stray segment joining the end of one ring to the start of the next.
+	st.begin(Mesh.PRIMITIVE_LINES)
 	var centre := Vector2(_cursor_world.x, _cursor_world.z)
-	var segments := 64
+	# The outer ring is the brush edge; the inner one marks the full-strength
+	# core of the falloff, so the user can see where the tool bites hardest.
+	_ring(st, field, centre, brush_radius)
+	_ring(st, field, centre, brush_radius * 0.4)
+	brush_ring.mesh = st.commit()
+
+
+func _ring(st: SurfaceTool, field: TFHeightfield, centre: Vector2, radius: float) -> void:
+	var segments := 72
+	var prev := Vector3.ZERO
 	for i in range(segments + 1):
 		var a := TAU * float(i) / float(segments)
-		var p := centre + Vector2(cos(a), sin(a)) * brush_radius
-		st.add_vertex(Vector3(p.x, field.sample(p) + 0.25, p.y))
-	# An inner ring marks the full-strength core of the falloff.
-	for i in range(segments + 1):
-		var a2 := TAU * float(i) / float(segments)
-		var p2 := centre + Vector2(cos(a2), sin(a2)) * brush_radius * 0.4
-		st.add_vertex(Vector3(p2.x, field.sample(p2) + 0.25, p2.y))
-	brush_ring.mesh = st.commit()
+		var p := centre + Vector2(cos(a), sin(a)) * radius
+		var v := Vector3(p.x, field.sample(p) + 0.25, p.y)
+		if i > 0:
+			st.add_vertex(prev)
+			st.add_vertex(v)
+		prev = v
 
 
 func set_brush_radius(v: float) -> void:
