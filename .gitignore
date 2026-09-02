@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 *.blend1
 victorian_estate.blend
+
+# Godot engine-generated caches and import data
+terraforge/.godot/
+terraforge/android/
+*.translation
