@@ -121,30 +121,57 @@ func history() -> Array[TFOperation]:
 	return ops
 
 
-## Rebuild the whole document by replaying operations from the newest snapshot
-## at or before the cursor.
+## Rebuild the whole document by replaying operations, using the newest terrain
+## snapshot at or before the cursor as a shortcut.
+##
+## A snapshot stored under key `n` holds the sculpted surface AFTER the first
+## `n` operations. So the replay runs in three phases, in this order:
+##   1. operations before the snapshot, skipping the surface-only ones the
+##      snapshot already accounts for (features, assumptions and settings are
+##      cheap and are always replayed exactly);
+##   2. adopt the snapshot surface;
+##   3. replay every operation after the snapshot in full.
+## Applying the snapshot last would discard phase 3 entirely.
 func _rebuild() -> void:
-	var start := 0
-	var best := -1
+	var best := 0
 	for k in _snapshots.keys():
 		var ki := int(k)
 		if ki <= cursor and ki > best:
 			best = ki
-	# Non-terrain state (features, assumptions) is always replayed from zero;
-	# it is tiny. Only the heightfield uses the snapshot shortcut.
+
 	road = null
 	tower = null
 	assumptions = TFAssumptions.new()
 	existing = null
 	sculpt = null
 
-	for i in range(cursor):
+	var resume: int = mini(best, cursor)
+
+	for i in range(resume):
 		var op := ops[i]
-		if best > 0 and i < best and op.is_terrain_op() and op.type != TFOperation.CREATE_FLAT_TERRAIN:
+		if op.is_surface_only_op():
 			continue
 		_apply(op)
-	if best > 0 and sculpt != null:
-		sculpt.heights = (_snapshots[best] as PackedFloat32Array).duplicate()
+
+	if best > 0 and sculpt != null and _snapshots.has(best):
+		var snap := _snapshots[best] as PackedFloat32Array
+		if snap.size() == sculpt.heights.size():
+			sculpt.heights = snap.duplicate()
+		else:
+			# The grid changed under the snapshot; fall back to a full replay
+			# rather than pasting a mismatched buffer.
+			push_warning("TerraForge: discarding a terrain snapshot that no longer matches the grid.")
+			_snapshots.erase(best)
+			resume = 0
+			road = null
+			tower = null
+			assumptions = TFAssumptions.new()
+			existing = null
+			sculpt = null
+
+	for i in range(resume, cursor):
+		_apply(ops[i])
+
 	_rederive(Vector4i(0, 0, -1, -1))
 
 

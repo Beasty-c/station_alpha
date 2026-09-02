@@ -198,10 +198,21 @@ static func _playback(t: TFTest) -> void:
 	pb.goto_step(3)
 	pb.next_step()
 	t.eq_int(pb.current_index(), 4, "next advances one step")
+	# goto/next land at the very START of a step, so prev moves back a step
+	# rather than rewinding in place.
 	pb.prev_step()
-	t.eq_int(pb.current_index(), 4, "prev first rewinds to the start of the current step")
+	t.eq_int(pb.current_index(), 3, "prev from the start of a step moves to the previous step")
 	pb.prev_step()
-	t.eq_int(pb.current_index(), 3, "prev then moves to the previous step")
+	t.eq_int(pb.current_index(), 2, "prev again moves back another step")
+	# From partway through a step, the first prev rewinds to that step's start.
+	var s4 := applicable[4]
+	pb.seek_hours(lerpf(s4.start_hours, s4.end_hours, 0.5))
+	t.eq_int(pb.current_index(), 4, "seeking into the middle of a step selects it")
+	pb.prev_step()
+	t.eq_int(pb.current_index(), 4, "prev from mid-step rewinds to the start of the same step")
+	t.near(pb.position_hours, s4.start_hours, 1e-3, "the rewind lands on the step's start time")
+	pb.prev_step()
+	t.eq_int(pb.current_index(), 3, "a second prev then moves to the previous step")
 
 	# Cumulative quantities never go backwards along the timeline.
 	var last := -1.0

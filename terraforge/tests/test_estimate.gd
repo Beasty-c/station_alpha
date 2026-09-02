@@ -102,9 +102,35 @@ static func _zero_truck_capacity(t: TFTest) -> void:
 	t.eq_int(an2.total_truckloads, 0, "negative truck capacity also reports no truckloads")
 
 
+## A site with real cut as well as fill. The sample scenario alone will not do:
+## its hill sits entirely ABOVE the flat existing datum, so it is pure fill and
+## the mass excavation step is correctly omitted.
+static func _cut_and_fill_site() -> TFProject:
+	var p := TFProject.create_default(81, 81, 2.0, 0.0)
+	var up := []
+	var down := []
+	for i in 8:
+		up.append(TFBrush.make_stamp(Vector2(-45.0, 0.0), 34.0, 6.0, 0.5))
+		down.append(TFBrush.make_stamp(Vector2(45.0, 0.0), 34.0, 5.0, 0.5))
+	p.apply_stroke(TFBrush.Mode.RAISE, up)
+	p.apply_stroke(TFBrush.Mode.LOWER, down)
+	return p
+
+
 static func _production_rate_traceability(t: TFTest) -> void:
-	var p := _site()
+	var sample := _site()
+	var sample_an := sample.analyze()
+	t.near(sample_an.cut_bank_m3, 0.0, 1.0,
+		"the sample hill sits above the datum, so it has no cut")
+	t.ok(not _step(TFSequenceGenerator.generate(sample_an, sample.assumptions, sample.road, sample.tower),
+		"mass_excavation").applicable,
+		"a pure-fill design correctly omits mass excavation")
+
+	var p := _cut_and_fill_site()
 	var an := p.analyze()
+	t.greater(an.cut_bank_m3, 100.0, "the cut-and-fill site produces real cut volume")
+	t.greater(an.fill_compacted_m3, 100.0, "the cut-and-fill site produces real fill volume")
+
 	var slow := p.assumptions.duplicate_assumptions()
 	slow.excavator_bcm_per_hour = 50.0
 	var fast := p.assumptions.duplicate_assumptions()
@@ -113,12 +139,10 @@ static func _production_rate_traceability(t: TFTest) -> void:
 	var qf := TFSequenceGenerator.generate(an, fast, p.road, p.tower)
 	var ds := _step(qs, "mass_excavation")
 	var df := _step(qf, "mass_excavation")
-	if ds != null and df != null and ds.applicable:
-		t.near(ds.duration_hours / df.duration_hours, 4.0, 0.01,
-			"quartering excavator production quadruples the excavation duration")
-		t.greater(qs.total_duration_hours, qf.total_duration_hours, "a slower fleet lengthens the programme")
-	else:
-		t.ok(false, "the sample site should produce an applicable mass excavation step")
+	t.ok(ds.applicable, "the cut-and-fill site produces an applicable mass excavation step")
+	t.near(ds.duration_hours / df.duration_hours, 4.0, 0.01,
+		"quartering excavator production quadruples the excavation duration")
+	t.greater(qs.total_duration_hours, qf.total_duration_hours, "a slower fleet lengthens the programme")
 
 
 static func _cost_traceability(t: TFTest) -> void:

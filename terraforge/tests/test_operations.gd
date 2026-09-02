@@ -89,17 +89,51 @@ static func _undo_redo(t: TFTest) -> void:
 static func _snapshot_replay(t: TFTest) -> void:
 	# More operations than SNAPSHOT_EVERY, so the snapshot shortcut is used.
 	var p := _p()
-	var marks := []
+	var by_cursor := {}
+	by_cursor[p.cursor] = p.sculpt.checksum()
 	for i in 26:
 		_stroke(p, TFBrush.Mode.RAISE, Vector2(float(i) - 12.0, float(i % 7) * 3.0), 10.0, 1.5, 3)
-		marks.append(p.sculpt.checksum())
+		by_cursor[p.cursor] = p.sculpt.checksum()
 	t.greater(float(p._snapshots.size()), 0.0, "snapshots are taken during a long history")
-	for k in range(24, 0, -1):
+	var top := p.cursor
+
+	# Walk the whole history backwards, then forwards, checking every position
+	# against the surface that was actually produced when it was first built.
+	var undo_exact := true
+	while p.can_undo():
 		p.undo()
-	t.eq_str(p.sculpt.checksum(), marks[0], "undoing 24 operations through snapshots is exact")
-	for k in range(24):
+		if p.sculpt.checksum() != String(by_cursor[p.cursor]):
+			undo_exact = false
+	t.ok(undo_exact, "every undo across the snapshot range reproduces its original surface")
+
+	var redo_exact := true
+	while p.can_redo():
 		p.redo()
-	t.eq_str(p.sculpt.checksum(), marks[24], "redoing 24 operations through snapshots is exact")
+		if p.sculpt.checksum() != String(by_cursor[p.cursor]):
+			redo_exact = false
+	t.ok(redo_exact, "every redo across the snapshot range reproduces its original surface")
+	t.eq_int(p.cursor, top, "redo returns to the end of the history")
+
+	# The strong invariant: snapshots are an OPTIMISATION ONLY. Rebuilding with
+	# them must equal rebuilding without them at every single cursor position.
+	# (An earlier version of _rebuild applied the snapshot after replaying the
+	# operations that followed it, silently discarding them; this catches that
+	# class of bug directly rather than through a fixed checksum.)
+	var mismatches := 0
+	var saved: Dictionary = p._snapshots
+	for c in range(1, top + 1):
+		p._snapshots = saved
+		p.cursor = c
+		p._rebuild()
+		var with_snapshots := p.sculpt.checksum()
+		p._snapshots = {}
+		p._rebuild()
+		if with_snapshots != p.sculpt.checksum():
+			mismatches += 1
+	p._snapshots = saved
+	p.cursor = top
+	p._rebuild()
+	t.eq_int(mismatches, 0, "the snapshot shortcut never changes the replayed surface")
 
 
 static func _redo_tail_discarded(t: TFTest) -> void:
@@ -155,8 +189,14 @@ static func _parametric_features(t: TFTest) -> void:
 	t.near(p.road.width_m, 8.0, 1e-9, "undo restores the previous road width")
 	p.remove_road()
 	t.ok(p.road == null, "the road can be removed")
+	t.ok(p.proposed.checksum() != p.sculpt.checksum(),
+		"the tower pad still shapes the derived surface after the road is removed")
+	p.remove_tower()
+	t.ok(p.tower == null, "the tower can be removed")
 	t.eq_str(p.proposed.checksum(), p.sculpt.checksum(),
-		"with the road removed and the tower undone the derived surface returns to the sculpt")
+		"with every feature removed the derived surface returns to the sculpt exactly")
+	t.eq_str(p.sculpt.checksum(), sculpt_sum,
+		"removing features never touched the sculpted surface")
 
 
 static func _assumption_ops(t: TFTest) -> void:

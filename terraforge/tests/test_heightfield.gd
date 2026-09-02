@@ -133,15 +133,21 @@ static func _brush(t: TFTest) -> void:
 	t.near(f.get_h(20, 20), 2.0, 0.01, "flatten converges on its target elevation")
 	t.ok(f.get_h(20, 20) >= 2.0 - 1e-6, "flatten never overshoots below the target")
 
-	# Smooth reduces roughness without moving the mean much.
+	# Smooth reduces roughness inside the brush and leaves the rest alone.
+	# Variance is measured over the brushed window, not the whole field: the
+	# brush only covers part of the grid, so a whole-field figure would be
+	# dominated by ground the tool never touched.
 	var sm := TFHeightfield.create_flat(41, 41, 1.0, 0.0, Vector2(-20.0, -20.0))
 	for r in sm.rows:
 		for c in sm.cols:
 			sm.set_h(c, r, 1.0 if (c + r) % 2 == 0 else -1.0)
-	var before_var := _variance(sm)
+	var inner := Vector4i(14, 14, 26, 26)     # well inside the 10 m brush
+	var outer_before := sm.get_h(2, 2)
+	var before_var := _variance_in(sm, inner)
 	for i in 12:
 		TFBrush.apply_stamp(sm, TFBrush.Mode.SMOOTH, TFBrush.make_stamp(Vector2.ZERO, 10.0, 5.0, 0.2))
-	t.ok(_variance(sm) < before_var * 0.5, "smoothing reduces surface variance")
+	t.ok(_variance_in(sm, inner) < before_var * 0.5, "smoothing reduces variance under the brush")
+	t.near(sm.get_h(2, 2), outer_before, 1e-9, "smoothing leaves ground outside the brush untouched")
 
 
 static func _brush_edge_cases(t: TFTest) -> void:
@@ -163,12 +169,15 @@ static func _brush_edge_cases(t: TFTest) -> void:
 	t.near(TFBrush.falloff(1.0, 0.0), 0.0, 1e-9, "a zero-radius brush has no effect")
 
 
-static func _variance(hf: TFHeightfield) -> float:
+static func _variance_in(hf: TFHeightfield, b: Vector4i) -> float:
+	var vals := hf.copy_region(b)
+	if vals.is_empty():
+		return 0.0
 	var mean := 0.0
-	for h in hf.heights:
+	for h in vals:
 		mean += h
-	mean /= float(hf.heights.size())
+	mean /= float(vals.size())
 	var v := 0.0
-	for h in hf.heights:
+	for h in vals:
 		v += (h - mean) * (h - mean)
-	return v / float(hf.heights.size())
+	return v / float(vals.size())

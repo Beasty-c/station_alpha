@@ -24,11 +24,22 @@ const REMOVE_TOWER := "RemoveTower"
 const CHANGE_ESTIMATE_ASSUMPTION := "ChangeEstimateAssumption"
 const CHANGE_PROJECT_SETTING := "ChangeProjectSetting"
 
-## Operations that change the sculpted surface (used to decide what a replay
-## from a terrain snapshot has to redo).
+## Operations that change the sculpted surface.
 const TERRAIN_OPS := [
 	CREATE_FLAT_TERRAIN, RAISE_TERRAIN, LOWER_TERRAIN, SMOOTH_REGION,
 	FLATTEN_REGION, RESET_TERRAIN, GENERATE_SAMPLE_SITE,
+]
+
+## Operations whose ONLY effect is on the sculpted heightfield. A replay that
+## starts from a terrain snapshot can skip exactly these, because the snapshot
+## already contains their result and they leave nothing else behind.
+##
+## CreateFlatTerrain and GenerateSampleSite are deliberately NOT in this list:
+## the first establishes the grid and the immutable existing surface, and the
+## second also creates the road and the tower. Skipping either would lose state
+## the snapshot does not carry.
+const SURFACE_ONLY_OPS := [
+	RAISE_TERRAIN, LOWER_TERRAIN, SMOOTH_REGION, FLATTEN_REGION, RESET_TERRAIN,
 ]
 
 var id: String = ""
@@ -85,6 +96,10 @@ static func default_label(p_type: String, p: Dictionary) -> String:
 
 func is_terrain_op() -> bool:
 	return TERRAIN_OPS.has(type)
+
+
+func is_surface_only_op() -> bool:
+	return SURFACE_ONLY_OPS.has(type)
 
 
 func icon_hint() -> String:

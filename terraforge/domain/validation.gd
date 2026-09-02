@@ -92,6 +92,20 @@ static func check_design(project: TFProject, an: TFAnalysis) -> Array[Dictionary
 			"Site dimensions are invalid (%d x %d nodes at %.3f m)." % [project.settings.site_cols, project.settings.site_rows, project.settings.site_spacing_m],
 			"Create a new project with a valid grid."))
 
+	# The road is checked from the project, not only from the analysis: an
+	# alignment that is invalid produces no metrics at all, so relying on the
+	# analysis alone would let a zero width or a single control point through
+	# in silence.
+	if project.road != null and not project.road.is_valid():
+		if project.road.width_m <= 0.0:
+			out.append(_issue(ERROR, "road_width",
+				"Road width is %.2f m. A corridor cannot be built from a non-positive width." % project.road.width_m,
+				"Enter a positive width in the road properties.", "width_m"))
+		if project.road.point_count() < 2:
+			out.append(_issue(ERROR, "road_points",
+				"The road alignment has %d control point(s); at least two are needed." % project.road.point_count(),
+				"Add another control point, or remove the alignment.", "control_points"))
+
 	if an != null:
 		if an.max_slope_ratio > 1.0:
 			out.append(_issue(WARNING, "slope_extreme",

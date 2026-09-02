@@ -129,15 +129,28 @@ static func _never_claims_professional_status(t: TFTest) -> void:
 	t.ok(TFProjectSettings.STATUS_LABELS.has("professionally_certified"),
 		"the model can express certified status, so a future module can use it honestly")
 
-	# Nothing generated in V1 may claim a professional act was performed.
+	# Nothing generated in V1 may ASSERT that a professional act was performed.
+	# The bans below are affirmative constructions only. TerraForge deliberately
+	# uses several of these words in denials ("not field-verified survey marks"),
+	# and banning the bare word would push the app towards saying less about its
+	# own limits, which is the opposite of the intent.
 	var haystack := JSON.stringify(TFSchema.to_dict(p, an, q)).to_lower()
 	for phrase in ["has been certified", "has been approved", "is approved",
-			"survey completed", "field verified", "field-verified",
-			"inspection completed", "permit approved", "sealed by",
-			"construction ready", "construction-ready", "as-surveyed"]:
-		t.ok(not haystack.contains(phrase), "the exported project never says '%s'" % phrase)
+			"is certified", "survey completed", "is field-verified",
+			"has been field verified", "inspection completed", "permit approved",
+			"sealed by", "is construction ready", "is construction-ready",
+			"as-surveyed", "meets code", "code compliant"]:
+		t.ok(not haystack.contains(phrase), "the exported project never asserts '%s'" % phrase)
+
+	# And it must actively state its status rather than merely avoiding claims.
 	t.ok(haystack.contains("not for construction"), "the exported project says it is not for construction")
 	t.ok(haystack.contains("proposed stakeout"), "the exported project explains the stake status")
+	t.ok(haystack.contains("not field-verified"), "the exported project denies field verification outright")
+	t.ok(haystack.contains("not a quote"), "the exported project denies that the cost is a quote")
+	for step in q.steps:
+		if step.id == "final_inspection":
+			t.ok(step.description.contains("has not performed"),
+				"the closeout step states no inspection has been performed")
 
 
 static func _exploration_is_not_blocked(t: TFTest) -> void:
