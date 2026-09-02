@@ -1,5 +1,7 @@
-class_name TFTestOperations
 extends RefCounted
+
+## Loaded by path from tests/run_tests.gd, so it deliberately has no
+## class_name: test suites should not occupy global names in the product.
 
 ## The operation history IS the document. These tests prove that replaying it
 ## reproduces the surface exactly, that undo/redo is derived from it, and that

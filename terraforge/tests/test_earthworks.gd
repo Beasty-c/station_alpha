@@ -1,5 +1,7 @@
-class_name TFTestEarthworks
 extends RefCounted
+
+## Loaded by path from tests/run_tests.gd, so it deliberately has no
+## class_name: test suites should not occupy global names in the product.
 
 ## Volume tests against analytically known surfaces.
 ## Tolerances are explicit and documented next to each case.

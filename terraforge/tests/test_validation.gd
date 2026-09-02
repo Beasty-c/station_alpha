@@ -1,5 +1,7 @@
-class_name TFTestValidation
 extends RefCounted
+
+## Loaded by path from tests/run_tests.gd, so it deliberately has no
+## class_name: test suites should not occupy global names in the product.
 
 
 static func run(t: TFTest) -> void:

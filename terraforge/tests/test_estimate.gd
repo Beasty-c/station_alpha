@@ -1,5 +1,7 @@
-class_name TFTestEstimate
 extends RefCounted
+
+## Loaded by path from tests/run_tests.gd, so it deliberately has no
+## class_name: test suites should not occupy global names in the product.
 
 ## Estimating: material factors, truckloads, durations and costs must respond
 ## to their inputs in a traceable, monotonic way.
