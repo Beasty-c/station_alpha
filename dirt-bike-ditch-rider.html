@@ -190,11 +190,12 @@
   // Particles & popups
   // ---------------------------------------------------------------------
   function spawnCrashParticles() {
-    for (var i = 0; i < 28; i++) {
+    for (var i = 0; i < 18; i++) {
       var ang = Math.random() * Math.PI * 2;
-      var spd = 60 + Math.random() * 260;
-      var life = 0.5 + Math.random() * 0.6;
+      var spd = 80 + Math.random() * 260;
+      var life = 0.45 + Math.random() * 0.5;
       particles.push({
+        shape: "chunk",
         x: player.worldX, y: player.y,
         vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 120,
         life: life, maxLife: life,
@@ -202,22 +203,38 @@
         color: Math.random() < 0.5 ? "#6b4423" : "#8a5a2e"
       });
     }
+    for (var j = 0; j < 14; j++) {
+      var a2 = Math.random() * Math.PI * 2;
+      var s2 = 30 + Math.random() * 90;
+      var life2 = 0.9 + Math.random() * 0.7;
+      particles.push({
+        shape: "puff",
+        x: player.worldX, y: player.y - 6,
+        vx: Math.cos(a2) * s2 * 0.4, vy: Math.sin(a2) * s2 * 0.4 - 40,
+        life: life2, maxLife: life2,
+        size: 10 + Math.random() * 12,
+        color: Math.random() < 0.5 ? "#c9c6c2" : "#a9a49c"
+      });
+    }
   }
   function spawnDust() {
     particles.push({
+      shape: "puff",
       x: player.worldX - 18, y: player.y - 2,
-      vx: -speed * 0.3 + (Math.random() * 40 - 20), vy: -40 - Math.random() * 40,
-      life: 0.35, maxLife: 0.35,
-      size: 3 + Math.random() * 3,
-      color: "#9c7b4f"
+      vx: -speed * 0.3 + (Math.random() * 30 - 15), vy: -30 - Math.random() * 30,
+      life: 0.4, maxLife: 0.4,
+      size: 5 + Math.random() * 4,
+      color: Math.random() < 0.5 ? "#b9a685" : "#9aa0a3"
     });
   }
   function updateParticles(dt) {
     for (var i = particles.length - 1; i >= 0; i--) {
       var p = particles[i];
-      p.vy += GRAVITY * 1.4 * dt;
+      var g = p.shape === "puff" ? GRAVITY * 0.15 : GRAVITY * 1.4;
+      p.vy += g * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      if (p.shape === "puff") p.size += dt * 14;
       p.life -= dt;
       if (p.life <= 0) particles.splice(i, 1);
     }
@@ -369,20 +386,53 @@
   // ---------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------
+  function drawPuff(cx, cy, r, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(cx - r * 0.6, cy + r * 0.15, r * 0.65, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + r * 0.6, cy + r * 0.15, r * 0.65, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy - r * 0.2, r * 0.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy + r * 0.3, r * 0.7, 0, Math.PI * 2); ctx.fill();
+  }
+
   function drawSky() {
     var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#3f7fce");
-    g.addColorStop(0.55, "#a9d4ec");
-    g.addColorStop(1, "#e4f2f8");
+    g.addColorStop(0, "#d3572e");
+    g.addColorStop(0.4, "#e8823f");
+    g.addColorStop(0.72, "#f3b56a");
+    g.addColorStop(1, "#fbe0ad");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
-    var sx = W * 0.78, sy = H * 0.18;
-    var sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, 130);
-    sg.addColorStop(0, "rgba(255,250,222,0.85)");
-    sg.addColorStop(1, "rgba(255,250,222,0)");
+    // low dusk sun, glowing behind the hills
+    var sx = W * 0.74, sy = H * 0.46;
+    var sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, 150);
+    sg.addColorStop(0, "rgba(255,244,214,0.95)");
+    sg.addColorStop(1, "rgba(255,244,214,0)");
     ctx.fillStyle = sg;
-    ctx.fillRect(sx - 130, sy - 130, 260, 260);
+    ctx.fillRect(sx - 150, sy - 150, 300, 300);
+    ctx.fillStyle = "#fff3d6";
+    ctx.beginPath();
+    ctx.arc(sx, sy, 44, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawClouds();
+  }
+
+  function drawClouds() {
+    var cam = cameraX * 0.06;
+    var puffs = [
+      { x: 120, y: 0.12, s: 1.0 }, { x: 340, y: 0.09, s: 0.7 },
+      { x: 620, y: 0.20, s: 1.2 }, { x: 900, y: 0.07, s: 0.8 },
+      { x: 1180, y: 0.16, s: 0.9 }, { x: 1480, y: 0.11, s: 1.1 }
+    ];
+    for (var i = 0; i < puffs.length; i++) {
+      var p = puffs[i];
+      var sx = (((p.x - cam) % 1700) + 1700) % 1700 - 100;
+      var sy = H * p.y;
+      ctx.globalAlpha = 0.85;
+      drawPuff(sx, sy, 26 * p.s, "#ffe9c4");
+      ctx.globalAlpha = 1;
+    }
   }
 
   function drawHillLayer(cam, freq, amp, phase, base, color) {
@@ -401,8 +451,8 @@
   }
   function drawFarHills() {
     var cam = cameraX * 0.12;
-    drawHillLayer(cam * 0.6, 0.0009, 34, 0.0, H * 0.42, "#aeb9cd");
-    drawHillLayer(cam, 0.0014, 46, 2.1, H * 0.48, "#8d9ab3");
+    drawHillLayer(cam * 0.6, 0.0009, 34, 0.0, H * 0.42, "#4d6b4a");
+    drawHillLayer(cam, 0.0014, 46, 2.1, H * 0.48, "#25361f");
   }
 
   function drawMidground() {
@@ -495,6 +545,20 @@
     ctx.lineWidth = 3;
     ctx.stroke();
 
+    // a lighter winding path ribbon through the dirt, echoing a dry creek bed
+    ctx.strokeStyle = "rgba(217,196,143,0.5)";
+    ctx.lineWidth = 16;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    started = false;
+    for (var wp = startWx; wp <= right; wp += step) {
+      var sxp2 = wp - cameraX;
+      var syp2 = terrainY(wp) + 46 + Math.sin(wp * 0.006 + 0.7) * 24;
+      if (!started) { ctx.moveTo(sxp2, syp2); started = true; } else { ctx.lineTo(sxp2, syp2); }
+    }
+    ctx.stroke();
+    ctx.lineCap = "butt";
+
     // sparse deterministic dirt speckle texture
     ctx.fillStyle = "rgba(60,40,20,0.5)";
     var tstep = 34;
@@ -504,6 +568,27 @@
       var sx3 = wx3 - cameraX;
       var sy3 = terrainY(wx3) + 6 + h * 14;
       ctx.fillRect(sx3, sy3, 3, 3);
+    }
+
+    // small wildflowers along the grass line
+    var fstep = 58;
+    var fstart = Math.floor(left / fstep) * fstep;
+    for (var wf = fstart; wf <= right; wf += fstep) {
+      var hf = hash01(wf * 0.37 + 11);
+      if (hf < 0.35) continue;
+      var sxf = wf - cameraX;
+      var syf = terrainY(wf) - 2;
+      var petal = hf < 0.62 ? "#d94f3a" : (hf < 0.82 ? "#e8a23a" : "#e8d23a");
+      ctx.strokeStyle = "#3d6b2e";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(sxf, syf);
+      ctx.lineTo(sxf, syf - 6);
+      ctx.stroke();
+      ctx.fillStyle = petal;
+      ctx.beginPath();
+      ctx.arc(sxf, syf - 8, 2.4, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
@@ -546,6 +631,17 @@
     ctx.lineTo(sx + hz.w * 0.62, baseY - hz.h * 1.0);
     ctx.closePath();
     ctx.fill();
+
+    // antlers
+    ctx.strokeStyle = "#3a2a1a";
+    ctx.lineWidth = 2;
+    var hx = sx + hz.w * 0.58, hy = baseY - hz.h * 0.98;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy); ctx.lineTo(hx + 3, hy - 13);
+    ctx.moveTo(hx + 1, hy - 6); ctx.lineTo(hx + 8, hy - 9);
+    ctx.moveTo(hx - 3, hy - 1); ctx.lineTo(hx - 5, hy - 11);
+    ctx.moveTo(hx - 4, hy - 6); ctx.lineTo(hx - 10, hy - 8);
+    ctx.stroke();
   }
   function drawTire(hz, sx) {
     var gY = terrainY(hz.x);
@@ -598,37 +694,90 @@
     drawWheel(rearX, wheelY, wheelR, wheelSpin);
     drawWheel(frontX, wheelY, wheelR, wheelSpin);
 
-    ctx.fillStyle = "#20242b";
+    // frame / engine block
+    ctx.fillStyle = "#22242a";
     ctx.beginPath();
-    ctx.moveTo(rearX, wheelY - 2);
-    ctx.lineTo(-6, -10);
-    ctx.lineTo(2, -14);
-    ctx.lineTo(10, -22);
-    ctx.lineTo(16, -26);
-    ctx.lineTo(24, -20);
-    ctx.lineTo(27, -13);
-    ctx.lineTo(frontX + 4, -2);
-    ctx.lineTo(frontX - 3, wheelY - 3);
-    ctx.lineTo(6, 0);
-    ctx.lineTo(rearX + 4, wheelY - 4);
+    ctx.moveTo(rearX + 3, wheelY - 3);
+    ctx.lineTo(-8, -6);
+    ctx.lineTo(10, -8);
+    ctx.lineTo(frontX - 4, wheelY - 3);
+    ctx.lineTo(6, wheelY + 1);
     ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = "#20242b";
-    ctx.lineWidth = 4;
+    // low cafe-racer fork + handlebar
+    ctx.strokeStyle = "#22242a";
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(4, -8);
-    ctx.lineTo(9, 2);
+    ctx.moveTo(frontX - 2, wheelY - 4);
+    ctx.lineTo(22, -13);
+    ctx.lineTo(27, -16);
+    ctx.stroke();
+
+    // fuel tank
+    ctx.fillStyle = "#2a5fb0";
+    ctx.beginPath();
+    ctx.ellipse(-2, -12, 11, 6.5, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // seat
+    ctx.fillStyle = "#7a2a28";
+    ctx.beginPath();
+    ctx.moveTo(-16, -9);
+    ctx.lineTo(-2, -15);
+    ctx.lineTo(6, -13);
+    ctx.lineTo(4, -7);
+    ctx.lineTo(-14, -6);
+    ctx.closePath();
+    ctx.fill();
+
+    // headlight
+    ctx.fillStyle = "#e8e2c8";
+    ctx.beginPath();
+    ctx.arc(24, -15, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#22242a";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // rider leg (red pants)
+    ctx.strokeStyle = "#b33a2e";
+    ctx.lineWidth = 4.4;
+    ctx.beginPath();
+    ctx.moveTo(2, -11);
+    ctx.lineTo(9, 1);
     ctx.lineTo(2, wheelY - 2);
     ctx.stroke();
 
-    ctx.fillStyle = "#20242b";
+    // rider torso (dark shirt), leaning over the tank toward the bars
+    ctx.fillStyle = "#2c2f36";
     ctx.beginPath();
-    ctx.arc(20, -27, 6.2, 0, Math.PI * 2);
+    ctx.moveTo(-9, -12);
+    ctx.lineTo(-3, -21);
+    ctx.lineTo(9, -26);
+    ctx.lineTo(16, -22);
+    ctx.lineTo(21, -14);
+    ctx.lineTo(14, -12);
+    ctx.lineTo(2, -9);
+    ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = "#c8402f";
+
+    // arm to grip
+    ctx.strokeStyle = "#2c2f36";
+    ctx.lineWidth = 3.4;
     ctx.beginPath();
-    ctx.arc(23, -26, 2.2, 0, Math.PI * 2);
+    ctx.moveTo(12, -20);
+    ctx.lineTo(24, -16);
+    ctx.stroke();
+
+    // head + hair (no helmet - a regular guy, per the daydream premise)
+    ctx.fillStyle = "#d69a72";
+    ctx.beginPath();
+    ctx.arc(12, -28, 5.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#5a3a24";
+    ctx.beginPath();
+    ctx.arc(11, -30.5, 5.8, Math.PI * 0.95, Math.PI * 2.15);
     ctx.fill();
 
     ctx.restore();
@@ -638,9 +787,14 @@
     for (var i = 0; i < particles.length; i++) {
       var p = particles[i];
       var sx = p.x - cameraX, sy = p.y;
-      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(sx - p.size / 2, sy - p.size / 2, p.size, p.size);
+      var isPuff = p.shape === "puff";
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife) * (isPuff ? 0.55 : 1);
+      if (isPuff) {
+        drawPuff(sx, sy, p.size, p.color);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(sx - p.size / 2, sy - p.size / 2, p.size, p.size);
+      }
     }
     ctx.globalAlpha = 1;
   }
