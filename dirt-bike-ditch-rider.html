@@ -22,6 +22,9 @@
     outline: none;
     cursor: pointer;
     touch-action: none;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
   }
   #hint {
     position: fixed;
@@ -51,17 +54,26 @@
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
 
-  var W = 0, H = 0, BASELINE_Y = 0, ANCHOR_X = 0;
+  var W = 0, H = 0, BASELINE_Y = 0, ANCHOR_X = 0, PIXEL = 4;
 
   function resize() {
-    var dpr = window.devicePixelRatio || 1;
     W = window.innerWidth;
     H = window.innerHeight;
-    canvas.width = Math.floor(W * dpr);
-    canvas.height = Math.floor(H * dpr);
     canvas.style.width = W + "px";
     canvas.style.height = H + "px";
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Render at a small pixel-art backing resolution, then let the
+    // browser's nearest-neighbor upscale (image-rendering: pixelated,
+    // set in the CSS) blow it back up to full size with chunky,
+    // 8-bit-style pixels. Every draw* function below still works in
+    // full-resolution W/H coordinates - only this transform changes.
+    PIXEL = Math.max(3, Math.round(H / 175));
+    var bw = Math.max(1, Math.round(W / PIXEL));
+    var bh = Math.max(1, Math.round(H / PIXEL));
+    canvas.width = bw;
+    canvas.height = bh;
+    ctx.setTransform(1 / PIXEL, 0, 0, 1 / PIXEL, 0, 0);
+
     BASELINE_Y = H * 0.62;
     ANCHOR_X = W * 0.30;
   }
@@ -71,11 +83,11 @@
   // Constants
   // ---------------------------------------------------------------------
   var GRAVITY = 1500;          // px/s^2
-  var BASE_SPEED = 260;        // px/s
-  var MAX_SPEED = 680;         // px/s
-  var ACCEL = 6;                // px/s^2 gradual ramp-up
-  var LANDING_SURGE = 45;      // px/s bonus on a clean landing
-  var JUMP_IMPULSE = 520;      // manual hop strength
+  var BASE_SPEED = 340;        // px/s
+  var MAX_SPEED = 900;         // px/s
+  var ACCEL = 9;                // px/s^2 gradual ramp-up
+  var LANDING_SURGE = 60;      // px/s bonus on a clean landing
+  var JUMP_IMPULSE = 640;      // manual hop strength
   var ROT_SPEED = 3.6;         // rad/s air pitch rate
   var PIXELS_PER_METER = 8;    // cosmetic scale for the HUD odometer
   var CLEAN_LANDING_DEG = 30;
@@ -800,7 +812,7 @@
   }
   function drawPopups() {
     ctx.textAlign = "center";
-    ctx.font = "bold 22px sans-serif";
+    ctx.font = "bold 22px monospace";
     for (var i = 0; i < popups.length; i++) {
       var p = popups[i];
       var sx = p.worldX - cameraX;
@@ -838,11 +850,11 @@
     ctx.globalAlpha = ta;
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 46px sans-serif";
+    ctx.font = "bold 46px monospace";
     ctx.fillText("CRASHED", W / 2, H / 2 - 40);
-    ctx.font = "22px sans-serif";
+    ctx.font = "22px monospace";
     ctx.fillText("Distance: " + finalDistance + " m", W / 2, H / 2 + 4);
-    ctx.font = "16px sans-serif";
+    ctx.font = "16px monospace";
     ctx.fillStyle = "#ffd23f";
     ctx.fillText("Click or Press Space to Restart", W / 2, H / 2 + 40);
     ctx.globalAlpha = 1;
