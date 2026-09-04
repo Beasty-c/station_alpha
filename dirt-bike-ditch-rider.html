@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ditch Rider</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    background: #0c1116;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  #game {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: #87ceeb;
+    outline: none;
+    cursor: pointer;
+    touch-action: none;
+  }
+  #hint {
+    position: fixed;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.78);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0"></canvas>
+<div id="hint">Click the canvas to focus &middot; SPACE / &uarr; hop &middot; &larr;&rarr; or A/D pitch in air</div>
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // Setup
+  // ---------------------------------------------------------------------
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+
+  var W = 0, H = 0, BASELINE_Y = 0, ANCHOR_X = 0;
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    BASELINE_Y = H * 0.62;
+    ANCHOR_X = W * 0.30;
+  }
+  window.addEventListener("resize", resize);
+
+  // ---------------------------------------------------------------------
+  // Constants
+  // ---------------------------------------------------------------------
+  var GRAVITY = 1500;          // px/s^2
+  var BASE_SPEED = 260;        // px/s
+  var MAX_SPEED = 680;         // px/s
+  var ACCEL = 6;                // px/s^2 gradual ramp-up
+  var LANDING_SURGE = 45;      // px/s bonus on a clean landing
+  var JUMP_IMPULSE = 520;      // manual hop strength
+  var ROT_SPEED = 3.6;         // rad/s air pitch rate
+  var PIXELS_PER_METER = 8;    // cosmetic scale for the HUD odometer
+  var CLEAN_LANDING_DEG = 30;
+  var CRASH_LANDING_DEG = 45;
+
+  // ---------------------------------------------------------------------
+  // Terrain: procedural rolling ditch + launch mounds via summed sine waves
+  // ---------------------------------------------------------------------
+  function terrainOffset(x) {
+    var h = 0;
+    h += Math.sin(x * 0.0032) * 38;                                   // broad rolling hills
+    h += Math.sin(x * 0.0075 + 2.1) * 20;                             // medium undulation
+    h += Math.sin(x * 0.019 + 0.4) * 9;                               // small texture
+    h += Math.pow(Math.max(0, Math.sin(x * 0.0022 + 1.0)), 4) * 100;  // big smooth launch mounds
+    h += Math.pow(Math.max(0, Math.sin(x * 0.0031 + 3.3)), 6) * 62;   // sharper secondary berms
+    return h;
+  }
+  function terrainY(x) {
+    return BASELINE_Y - terrainOffset(x);
+  }
+  function slopeAt(x) {
+    return (terrainY(x + 2) - terrainY(x - 2)) / 4;
+  }
+  function hash01(n) {
+    var s = Math.sin(n * 127.1) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  // ---------------------------------------------------------------------
+  // Angle helpers
+  // ---------------------------------------------------------------------
+  function wrapAngle(a) {
+    a = a % (Math.PI * 2);
+    if (a > Math.PI) a -= Math.PI * 2;
+    if (a < -Math.PI) a += Math.PI * 2;
+    return a;
+  }
+  function lerpAngle(a, b, t) {
+    return a + wrapAngle(b - a) * t;
+  }
+
+  // ---------------------------------------------------------------------
+  // Game state
+  // ---------------------------------------------------------------------
+  var state = "playing";       // "playing" | "crashed"
+  var crashTimer = 0;
+  var finalDistance = 0;
+  var speed = BASE_SPEED;
+  var cameraX = 0;
+  var dustTimer = 0;
+
+  var player = {
+    worldX: 0, y: 0, vy: 0,
+    angle: 0, angularVel: 0,
+    grounded: true, airTime: 0, spinAccum: 0
+  };
+
+  var hazards = [];
+  var nextHazardX = 700;
+  var particles = [];
+  var popups = [];
+  var keys = { left: false, right: false };
+
+  // ---------------------------------------------------------------------
+  // Hazards
+  // ---------------------------------------------------------------------
+  var HAZARD_TYPES = ["deer", "culvert", "tire"];
+
+  function spawnHazard() {
+    var type = HAZARD_TYPES[Math.floor(Math.random() * HAZARD_TYPES.length)];
+    var x = nextHazardX;
+    var hz;
+    if (type === "culvert") {
+      hz = { type: type, x: x, w: 70 + Math.random() * 40 };
+    } else if (type === "deer") {
+      hz = { type: type, x: x, w: 34, h: 46 };
+    } else {
+      hz = { type: type, x: x, w: 34, h: 32 };
+    }
+    hazards.push(hz);
+    nextHazardX = x + 380 + Math.random() * 520;
+  }
+  function updateHazards() {
+    while (nextHazardX < player.worldX + 2600) spawnHazard();
+    while (hazards.length && hazards[0].x < player.worldX - 800) hazards.shift();
+  }
+  function checkHazardCollisions() {
+    for (var i = 0; i < hazards.length; i++) {
+      var hz = hazards[i];
+      if (hz.type === "culvert") {
+        if (player.grounded &&
+            player.worldX > hz.x - hz.w / 2 && player.worldX < hz.x + hz.w / 2) {
+          crash();
+          return;
+        }
+      } else {
+        var groundHere = terrainY(hz.x);
+        var top = groundHere - hz.h;
+        var halfW = hz.w / 2 + 14;
+        var clearance = 10;
+        if (player.worldX > hz.x - halfW && player.worldX < hz.x + halfW) {
+          if (player.y > top - clearance) {
+            crash();
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Particles & popups
+  // ---------------------------------------------------------------------
+  function spawnCrashParticles() {
+    for (var i = 0; i < 28; i++) {
+      var ang = Math.random() * Math.PI * 2;
+      var spd = 60 + Math.random() * 260;
+      var life = 0.5 + Math.random() * 0.6;
+      particles.push({
+        x: player.worldX, y: player.y,
+        vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 120,
+        life: life, maxLife: life,
+        size: 2 + Math.random() * 4,
+        color: Math.random() < 0.5 ? "#6b4423" : "#8a5a2e"
+      });
+    }
+  }
+  function spawnDust() {
+    particles.push({
+      x: player.worldX - 18, y: player.y - 2,
+      vx: -speed * 0.3 + (Math.random() * 40 - 20), vy: -40 - Math.random() * 40,
+      life: 0.35, maxLife: 0.35,
+      size: 3 + Math.random() * 3,
+      color: "#9c7b4f"
+    });
+  }
+  function updateParticles(dt) {
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.vy += GRAVITY * 1.4 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+  function spawnPopup(text) {
+    popups.push({ text: text, worldX: player.worldX, y: player.y - 60, life: 1.3, maxLife: 1.3 });
+  }
+  function updatePopups(dt) {
+    for (var i = popups.length - 1; i >= 0; i--) {
+      var p = popups[i];
+      p.y -= 40 * dt;
+      p.life -= dt;
+      if (p.life <= 0) popups.splice(i, 1);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Core actions
+  // ---------------------------------------------------------------------
+  function tryJump() {
+    if (state === "playing" && player.grounded) {
+      player.grounded = false;
+      player.vy = -JUMP_IMPULSE;
+      player.airTime = 0;
+      player.spinAccum = 0;
+    }
+  }
+
+  function handleLanding(groundY, slopeAngle) {
+    var diff = wrapAngle(player.angle - slopeAngle);
+    var absDeg = Math.abs(diff) * 180 / Math.PI;
+
+    if (absDeg > CRASH_LANDING_DEG) {
+      crash();
+      return;
+    }
+
+    player.grounded = true;
+    player.y = groundY;
+    player.angle = slopeAngle;
+    player.vy = slopeAt(player.worldX) * speed;
+
+    if (absDeg <= CLEAN_LANDING_DEG) {
+      speed = Math.min(MAX_SPEED, speed + LANDING_SURGE);
+      var label = "Clean Landing";
+      if (Math.abs(player.spinAccum) >= Math.PI * 1.7) {
+        label = player.spinAccum > 0 ? "Frontflip!" : "Backflip!";
+      } else if (player.airTime > 1.0) {
+        label = "Sick Air!";
+      }
+      spawnPopup(label);
+    }
+
+    player.airTime = 0;
+    player.spinAccum = 0;
+  }
+
+  function crash() {
+    if (state === "crashed") return;
+    state = "crashed";
+    crashTimer = 0;
+    finalDistance = Math.floor(player.worldX / PIXELS_PER_METER);
+    spawnCrashParticles();
+  }
+
+  function restart() {
+    state = "playing";
+    crashTimer = 0;
+    speed = BASE_SPEED;
+    cameraX = 0;
+    dustTimer = 0;
+    player.worldX = 0;
+    player.y = terrainY(0);
+    player.vy = 0;
+    player.angle = 0;
+    player.angularVel = 0;
+    player.grounded = true;
+    player.airTime = 0;
+    player.spinAccum = 0;
+    particles.length = 0;
+    popups.length = 0;
+    hazards.length = 0;
+    nextHazardX = 700;
+    while (nextHazardX < player.worldX + 2600) spawnHazard();
+  }
+
+  // ---------------------------------------------------------------------
+  // Update
+  // ---------------------------------------------------------------------
+  function update(dt) {
+    if (state !== "playing") {
+      crashTimer += dt;
+      updateParticles(dt);
+      updatePopups(dt);
+      return;
+    }
+
+    speed = Math.min(MAX_SPEED, speed + ACCEL * dt);
+    player.worldX += speed * dt;
+
+    var groundY = terrainY(player.worldX);
+    var slope = slopeAt(player.worldX);
+    var slopeAngle = Math.atan2(slope, 1);
+
+    if (player.grounded) {
+      player.vy += GRAVITY * dt;
+      var predictedY = player.y + player.vy * dt;
+      if (predictedY >= groundY) {
+        player.y = groundY;
+        player.vy = slope * speed;
+        player.angle = lerpAngle(player.angle, slopeAngle, Math.min(1, dt * 18));
+        player.airTime = 0;
+        player.spinAccum = 0;
+
+        dustTimer += dt;
+        if (dustTimer > 0.035 && speed > BASE_SPEED * 0.6) {
+          dustTimer = 0;
+          spawnDust();
+        }
+      } else {
+        player.grounded = false;
+        player.y = predictedY;
+      }
+    } else {
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+
+      var rot = 0;
+      if (keys.left) rot -= 1;
+      if (keys.right) rot += 1;
+      player.angularVel = rot * ROT_SPEED;
+      player.angle += player.angularVel * dt;
+      player.spinAccum += player.angularVel * dt;
+      player.airTime += dt;
+
+      if (player.y >= groundY) {
+        handleLanding(groundY, slopeAngle);
+      }
+    }
+
+    if (state === "playing") {
+      updateHazards();
+      checkHazardCollisions();
+    }
+    updateParticles(dt);
+    updatePopups(dt);
+  }
+
+  // ---------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------
+  function drawSky() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#3f7fce");
+    g.addColorStop(0.55, "#a9d4ec");
+    g.addColorStop(1, "#e4f2f8");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    var sx = W * 0.78, sy = H * 0.18;
+    var sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, 130);
+    sg.addColorStop(0, "rgba(255,250,222,0.85)");
+    sg.addColorStop(1, "rgba(255,250,222,0)");
+    ctx.fillStyle = sg;
+    ctx.fillRect(sx - 130, sy - 130, 260, 260);
+  }
+
+  function drawHillLayer(cam, freq, amp, phase, base, color) {
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    var step = 24;
+    for (var sxp = 0; sxp <= W; sxp += step) {
+      var wx = sxp + cam;
+      var sy = base - Math.sin(wx * freq + phase) * amp - Math.sin(wx * freq * 2.1 + phase) * amp * 0.25;
+      ctx.lineTo(sxp, sy);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  function drawFarHills() {
+    var cam = cameraX * 0.12;
+    drawHillLayer(cam * 0.6, 0.0009, 34, 0.0, H * 0.42, "#aeb9cd");
+    drawHillLayer(cam, 0.0014, 46, 2.1, H * 0.48, "#8d9ab3");
+  }
+
+  function drawMidground() {
+    var camPole = cameraX * 0.35;
+    var poleY = H * 0.20;
+    var poleBaseY = H * 0.50;
+    var poleSpacing = 320;
+    var start = Math.floor((camPole - poleSpacing) / poleSpacing) * poleSpacing;
+    var prevX = null, prevY = null;
+
+    for (var wx = start; wx < camPole + W + poleSpacing; wx += poleSpacing) {
+      var sx = wx - camPole;
+      if (prevX !== null) {
+        ctx.strokeStyle = "#2a2420";
+        ctx.lineWidth = 1.5;
+        for (var k = -1; k <= 1; k++) {
+          var y0 = prevY + 10 + k * 4, y1 = poleY + 10 + k * 4;
+          var midX = (prevX + sx) / 2, midY = Math.max(y0, y1) + 22;
+          ctx.beginPath();
+          ctx.moveTo(prevX - 14, y0);
+          ctx.quadraticCurveTo(midX, midY, sx + 14, y1);
+          ctx.stroke();
+        }
+      }
+      ctx.strokeStyle = "#3a2f28";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(sx, poleBaseY);
+      ctx.lineTo(sx, poleY);
+      ctx.stroke();
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(sx - 18, poleY + 10);
+      ctx.lineTo(sx + 18, poleY + 10);
+      ctx.stroke();
+
+      prevX = sx; prevY = poleY;
+    }
+
+    var camMid = cameraX * 0.5;
+    var railY = H * 0.54;
+    var postSpacing = 90;
+    var pstart = Math.floor((camMid - postSpacing) / postSpacing) * postSpacing;
+    ctx.strokeStyle = "#84858a";
+    ctx.lineWidth = 4;
+    for (var wxp = pstart; wxp < camMid + W + postSpacing; wxp += postSpacing) {
+      var sxp = wxp - camMid;
+      ctx.beginPath();
+      ctx.moveTo(sxp, railY - 2);
+      ctx.lineTo(sxp, railY + 34);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "#c3c4c8";
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(0, railY); ctx.lineTo(W, railY); ctx.stroke();
+    ctx.strokeStyle = "#9a9a9e";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(0, railY + 10); ctx.lineTo(W, railY + 10); ctx.stroke();
+  }
+
+  function drawTerrain() {
+    var step = 8;
+    var left = cameraX - 24;
+    var right = cameraX + W + 24;
+    var startWx = Math.floor(left / step) * step;
+
+    ctx.beginPath();
+    var started = false;
+    for (var wx = startWx; wx <= right; wx += step) {
+      var sx = wx - cameraX, sy = terrainY(wx);
+      if (!started) { ctx.moveTo(sx, sy); started = true; } else { ctx.lineTo(sx, sy); }
+    }
+    ctx.lineTo(right - cameraX, H);
+    ctx.lineTo(left - cameraX, H);
+    ctx.closePath();
+    var grad = ctx.createLinearGradient(0, BASELINE_Y - 180, 0, H);
+    grad.addColorStop(0, "#5a8f3c");
+    grad.addColorStop(0.14, "#4a7530");
+    grad.addColorStop(1, "#43301f");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    started = false;
+    for (var wx2 = startWx; wx2 <= right; wx2 += step) {
+      var sx2 = wx2 - cameraX, sy2 = terrainY(wx2);
+      if (!started) { ctx.moveTo(sx2, sy2); started = true; } else { ctx.lineTo(sx2, sy2); }
+    }
+    ctx.strokeStyle = "#7ec850";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // sparse deterministic dirt speckle texture
+    ctx.fillStyle = "rgba(60,40,20,0.5)";
+    var tstep = 34;
+    var tstart = Math.floor(left / tstep) * tstep;
+    for (var wx3 = tstart; wx3 <= right; wx3 += tstep) {
+      var h = hash01(wx3);
+      var sx3 = wx3 - cameraX;
+      var sy3 = terrainY(wx3) + 6 + h * 14;
+      ctx.fillRect(sx3, sy3, 3, 3);
+    }
+  }
+
+  function drawCulvert(hz, sx) {
+    var gY = terrainY(hz.x);
+    var halfW = hz.w / 2;
+    ctx.fillStyle = "#111214";
+    ctx.fillRect(sx - halfW, gY - 6, hz.w, 44);
+    ctx.fillStyle = "#8a8d92";
+    ctx.beginPath(); ctx.ellipse(sx - halfW, gY - 2, 7, 13, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(sx + halfW, gY - 2, 7, 13, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#050505";
+    ctx.beginPath(); ctx.ellipse(sx - halfW, gY - 2, 4, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(sx + halfW, gY - 2, 4, 8, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawDeer(hz, sx) {
+    var baseY = terrainY(hz.x);
+    ctx.fillStyle = "#4a3626";
+    ctx.strokeStyle = "#4a3626";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(sx, baseY - hz.h * 0.55, hz.w * 0.55, hz.h * 0.26, 0, 0, Math.PI * 2);
+    ctx.fill();
+    var legs = [-10, -3, 4, 11];
+    for (var i = 0; i < legs.length; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx + legs[i], baseY - hz.h * 0.45);
+      ctx.lineTo(sx + legs[i], baseY);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(sx + hz.w * 0.4, baseY - hz.h * 0.6);
+    ctx.lineTo(sx + hz.w * 0.62, baseY - hz.h * 0.95);
+    ctx.lineTo(sx + hz.w * 0.5, baseY - hz.h * 1.0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(sx + hz.w * 0.6, baseY - hz.h * 0.98);
+    ctx.lineTo(sx + hz.w * 0.72, baseY - hz.h * 1.12);
+    ctx.lineTo(sx + hz.w * 0.62, baseY - hz.h * 1.0);
+    ctx.closePath();
+    ctx.fill();
+  }
+  function drawTire(hz, sx) {
+    var gY = terrainY(hz.x);
+    var cy = gY - hz.h * 0.5;
+    ctx.fillStyle = "#17181c";
+    ctx.beginPath(); ctx.ellipse(sx, cy, hz.w * 0.5, hz.h * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#45464b";
+    ctx.beginPath(); ctx.ellipse(sx, cy, hz.w * 0.2, hz.h * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawHazards() {
+    for (var i = 0; i < hazards.length; i++) {
+      var hz = hazards[i];
+      var sx = hz.x - cameraX;
+      if (sx < -120 || sx > W + 120) continue;
+      if (hz.type === "culvert") drawCulvert(hz, sx);
+      else if (hz.type === "deer") drawDeer(hz, sx);
+      else drawTire(hz, sx);
+    }
+  }
+
+  function drawWheel(cx, cy, r, spin) {
+    ctx.beginPath();
+    ctx.fillStyle = "#111318";
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#585c66";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 2.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "#7a7f8a";
+    ctx.lineWidth = 1.6;
+    for (var i = 0; i < 3; i++) {
+      var a = spin + i * (Math.PI * 2 / 3);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * (r - 3), cy + Math.sin(a) * (r - 3));
+      ctx.stroke();
+    }
+  }
+  function drawPlayer() {
+    ctx.save();
+    ctx.translate(ANCHOR_X, player.y);
+    ctx.rotate(player.angle);
+
+    var wheelSpin = (player.worldX * 0.14) % (Math.PI * 2);
+    var wheelR = 13;
+    var rearX = -17, frontX = 19, wheelY = 7;
+
+    drawWheel(rearX, wheelY, wheelR, wheelSpin);
+    drawWheel(frontX, wheelY, wheelR, wheelSpin);
+
+    ctx.fillStyle = "#20242b";
+    ctx.beginPath();
+    ctx.moveTo(rearX, wheelY - 2);
+    ctx.lineTo(-6, -10);
+    ctx.lineTo(2, -14);
+    ctx.lineTo(10, -22);
+    ctx.lineTo(16, -26);
+    ctx.lineTo(24, -20);
+    ctx.lineTo(27, -13);
+    ctx.lineTo(frontX + 4, -2);
+    ctx.lineTo(frontX - 3, wheelY - 3);
+    ctx.lineTo(6, 0);
+    ctx.lineTo(rearX + 4, wheelY - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "#20242b";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(4, -8);
+    ctx.lineTo(9, 2);
+    ctx.lineTo(2, wheelY - 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#20242b";
+    ctx.beginPath();
+    ctx.arc(20, -27, 6.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#c8402f";
+    ctx.beginPath();
+    ctx.arc(23, -26, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      var sx = p.x - cameraX, sy = p.y;
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(sx - p.size / 2, sy - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawPopups() {
+    ctx.textAlign = "center";
+    ctx.font = "bold 22px sans-serif";
+    for (var i = 0; i < popups.length; i++) {
+      var p = popups[i];
+      var sx = p.worldX - cameraX;
+      ctx.globalAlpha = Math.min(1, p.life / 0.4);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.strokeText(p.text, sx, p.y);
+      ctx.fillStyle = "#ffd23f";
+      ctx.fillText(p.text, sx, p.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "left";
+  }
+
+  function drawHUD() {
+    var meters = Math.floor(player.worldX / PIXELS_PER_METER);
+    var kmh = Math.round((speed / PIXELS_PER_METER) * 3.6);
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(10, 10, 176, 58);
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 22px monospace";
+    ctx.fillText(meters + " m", 22, 36);
+    ctx.font = "14px monospace";
+    ctx.fillStyle = "#cfe8ff";
+    ctx.fillText(kmh + " km/h", 22, 58);
+  }
+
+  function drawGameOver() {
+    var a = Math.min(1, crashTimer / 0.4);
+    ctx.fillStyle = "rgba(10,10,14," + (0.62 * a) + ")";
+    ctx.fillRect(0, 0, W, H);
+    if (crashTimer <= 0.25) return;
+    var ta = Math.min(1, (crashTimer - 0.25) / 0.3);
+    ctx.globalAlpha = ta;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 46px sans-serif";
+    ctx.fillText("CRASHED", W / 2, H / 2 - 40);
+    ctx.font = "22px sans-serif";
+    ctx.fillText("Distance: " + finalDistance + " m", W / 2, H / 2 + 4);
+    ctx.font = "16px sans-serif";
+    ctx.fillStyle = "#ffd23f";
+    ctx.fillText("Click or Press Space to Restart", W / 2, H / 2 + 40);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "left";
+  }
+
+  function render() {
+    cameraX = player.worldX - ANCHOR_X;
+    drawSky();
+    drawFarHills();
+    drawMidground();
+    drawTerrain();
+    drawHazards();
+    drawParticles();
+    drawPlayer();
+    drawPopups();
+    drawHUD();
+    if (state === "crashed") drawGameOver();
+  }
+
+  // ---------------------------------------------------------------------
+  // Input
+  // ---------------------------------------------------------------------
+  function isControlKey(e) {
+    return e.code === "Space" || e.code === "ArrowUp" || e.code === "ArrowDown" ||
+           e.code === "ArrowLeft" || e.code === "ArrowRight" ||
+           e.code === "KeyA" || e.code === "KeyD";
+  }
+  window.addEventListener("keydown", function (e) {
+    if (isControlKey(e)) e.preventDefault();
+    if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = true;
+    if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = true;
+    if (e.code === "Space" || e.code === "ArrowUp") {
+      if (state === "playing") tryJump();
+      else if (state === "crashed") restart();
+    }
+  }, false);
+  window.addEventListener("keyup", function (e) {
+    if (isControlKey(e)) e.preventDefault();
+    if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = false;
+    if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = false;
+  }, false);
+
+  canvas.addEventListener("click", function () {
+    canvas.focus();
+    if (state === "crashed") restart();
+  });
+
+  // ---------------------------------------------------------------------
+  // Main loop
+  // ---------------------------------------------------------------------
+  resize();
+  restart();
+  canvas.focus();
+
+  var lastTime = performance.now();
+  function frame(now) {
+    var dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.035) dt = 0.035;
+    update(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
